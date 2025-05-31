@@ -1,0 +1,128 @@
+
+openapi: 3.0.3
+info:
+  title: Dynatrace UFO REST API
+  description: >
+    *Unofficial* OpenAPI 3.0 description generated from the original Dynatrace UFO
+    blog posts and firmware source. The device accepts HTTP **GET** requests on
+    `/api` with the query parameters defined below.
+  version: "1.0.0"
+servers:
+  - url: http://ufo
+    description: Default mDNS hostname
+  - url: http://{ip}
+    description: Device IP
+    variables:
+      ip:
+        default: 192.168.1.100
+paths:
+  /api:
+    get:
+      summary: Control UFO LEDs and configuration
+      description: |
+        All control parameters are supplied as **query parameters**.
+        Combine any number of them in one request, e.g.
+
+            GET /api?top_init=1&top=0|5|FF0000&top_whirl=500
+
+      parameters:
+        - name: logo
+          in: query
+          description: Turn the Dynatrace logo LED on or off.
+          schema:
+            type: string
+            enum: [on, off]
+
+        - name: top_init
+          in: query
+          description: Clear (zero) the top ring before applying new colours.
+          schema:
+            type: integer
+            enum: [0, 1]
+
+        - name: bottom_init
+          in: query
+          description: Clear the bottom ring before applying new colours.
+          schema:
+            type: integer
+            enum: [0, 1]
+
+        - name: top
+          in: query
+          description: |
+            Paint a segment on the **top** ring.
+
+            Format: `LED_INDEX|COUNT|RRGGBB`.
+
+            Multiple segments can be chained with `|`, e.g.
+            `0|3|FF0000|5|2|00FF00`
+          schema:
+            type: string
+
+        - name: bottom
+          in: query
+          description: Same as **top** but for the bottom ring.
+          schema:
+            type: string
+
+        - name: top_bg
+          in: query
+          description: Background colour (hex) for unlit LEDs on the top ring.
+          schema:
+            type: string
+            pattern: "^[0-9A-Fa-f]{6}$"
+
+        - name: bottom_bg
+          in: query
+          description: Background colour (hex) for unlit LEDs on the bottom ring.
+          schema:
+            type: string
+            pattern: "^[0-9A-Fa-f]{6}$"
+
+        - name: top_whirl
+          in: query
+          description: Rotate lit LEDs on the top ring clockwise.
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 510
+
+        - name: bottom_whirl
+          in: query
+          description: Rotate lit LEDs on the bottom ring.
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 510
+
+        - name: top_morph
+          in: query
+          description: |
+            Fade LEDs on the top ring.
+
+            Format: `STAY|SPEED` (in ms)
+          schema:
+            type: string
+
+        - name: bottom_morph
+          in: query
+          description: Fade LEDs on the bottom ring.
+          schema:
+            type: string
+
+        - name: dim
+          in: query
+          description: Global brightness (0‑255).
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 255
+
+      responses:
+        "200":
+          description: Command accepted
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK

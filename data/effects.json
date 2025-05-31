@@ -1,0 +1,32 @@
+[
+  {
+    "name": "policeLights",
+    "description": "Alternating red/blue flash",
+    "pattern": "top_init=1\u0026bottom_init=1\u0026top_bg=ff0000\u0026bottom_bg=0000ff\u0026top_whirl=500\u0026bottom_whirl=500",
+    "duration": 20
+  },
+  {
+    "name": "breathingGreen",
+    "description": "Fade in/out green",
+    "pattern": "top_init=1\u0026bottom_init=1\u0026top=00ff00\u0026bottom=00ff00\u0026top_morph=fade\u0026bottom_morph=fade",
+    "duration": 15
+  },
+  {
+    "name": "pipelineDemo",
+    "description": "Blog demo two-stage colours",
+    "pattern": "top_init=1\u0026bottom_init=1\u0026top=ffaa00\u0026bottom=00aaff",
+    "duration": 10
+  },
+  {
+    "name": "ipDisplay",
+    "description": "Spell IP address",
+    "pattern": "effect=ip",
+    "duration": 30
+  },
+  {
+    "name": "rainbow",
+    "description": "Slow moving rainbow",
+    "pattern": "effect=rainbow",
+    "duration": 15
+  }
+]
