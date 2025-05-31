@@ -7,19 +7,22 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/starspace46/ufo-mcp-go/internal/device"
 	"github.com/starspace46/ufo-mcp-go/internal/events"
+	"github.com/starspace46/ufo-mcp-go/internal/state"
 )
 
 // SetBrightnessTool implements the setBrightness MCP tool
 type SetBrightnessTool struct {
-	client      *device.Client
-	broadcaster *events.Broadcaster
+	client       *device.Client
+	broadcaster  *events.Broadcaster
+	stateManager *state.Manager
 }
 
 // NewSetBrightnessTool creates a new setBrightness tool instance
-func NewSetBrightnessTool(client *device.Client, broadcaster *events.Broadcaster) *SetBrightnessTool {
+func NewSetBrightnessTool(client *device.Client, broadcaster *events.Broadcaster, stateManager *state.Manager) *SetBrightnessTool {
 	return &SetBrightnessTool{
-		client:      client,
-		broadcaster: broadcaster,
+		client:       client,
+		broadcaster:  broadcaster,
+		stateManager: stateManager,
 	}
 }
 
@@ -109,9 +112,11 @@ func (t *SetBrightnessTool) Execute(ctx context.Context, arguments map[string]in
 		}, nil
 	}
 
-	// Publish the successful execution event and dim changed event
+	// Update shadow state
+	t.stateManager.UpdateBrightness(level)
+	
+	// Publish the successful execution event
 	t.broadcaster.PublishRawExecuted(fmt.Sprintf("dim=%d", level), "OK")
-	t.broadcaster.PublishDimChanged(level)
 
 	// Calculate percentage for user-friendly display
 	percentage := int(float64(level) / 255.0 * 100)

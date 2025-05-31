@@ -260,3 +260,17 @@ Use this template to document your test results:
 **Notes**:
 [Additional observations]
 ```
+### 4. LED State Resource Test (Path A)
+
+**Objective** – verify that `getLedState` returns the shadow copy and that a `ring_update` event is emitted.
+
+**Steps**
+
+1. Call `setRingPattern` to paint top LED 0 red.  
+2. Immediately call `getLedState`.  
+3. Subscribe to `/stateEvents` and watch for `ring_update`.
+
+**Expected**
+
+* `getLedState` JSON shows `top[0] == "FF0000"`.  
+* A `ring_update` event arrives within ~1 s.

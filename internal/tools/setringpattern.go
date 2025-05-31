@@ -8,19 +8,22 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/starspace46/ufo-mcp-go/internal/device"
 	"github.com/starspace46/ufo-mcp-go/internal/events"
+	"github.com/starspace46/ufo-mcp-go/internal/state"
 )
 
 // SetRingPatternTool implements the setRingPattern MCP tool
 type SetRingPatternTool struct {
-	client      *device.Client
-	broadcaster *events.Broadcaster
+	client       *device.Client
+	broadcaster  *events.Broadcaster
+	stateManager *state.Manager
 }
 
 // NewSetRingPatternTool creates a new setRingPattern tool instance
-func NewSetRingPatternTool(client *device.Client, broadcaster *events.Broadcaster) *SetRingPatternTool {
+func NewSetRingPatternTool(client *device.Client, broadcaster *events.Broadcaster, stateManager *state.Manager) *SetRingPatternTool {
 	return &SetRingPatternTool{
-		client:      client,
-		broadcaster: broadcaster,
+		client:       client,
+		broadcaster:  broadcaster,
+		stateManager: stateManager,
 	}
 }
 
@@ -272,6 +275,11 @@ func (t *SetRingPatternTool) Execute(ctx context.Context, arguments map[string]i
 		}, nil
 	}
 
+	// Update shadow state
+	// Parse segments and update LED state
+	ledColors := parseLedColors(segments, background)
+	t.stateManager.UpdateRingSegments(ring, ledColors, background)
+	
 	// Publish the successful execution event
 	command := buildRingPatternCommand(ring, segments, background, whirlMs, morphSpec)
 	t.broadcaster.PublishRawExecuted(command, "OK")
@@ -358,4 +366,45 @@ func buildRingPatternCommand(ring string, segments []string, background string, 
 	}
 	
 	return strings.Join(parts, "&")
+}
+
+// parseLedColors converts segment format to individual LED colors
+func parseLedColors(segments []string, background string) []string {
+	// Initialize with 15 LEDs (UFO has 15 LEDs per ring)
+	colors := make([]string, 15)
+	
+	// Fill with background color or black if no background
+	defaultColor := "000000"
+	if background != "" {
+		defaultColor = background
+	}
+	for i := range colors {
+		colors[i] = defaultColor
+	}
+	
+	// Apply segments
+	for _, segment := range segments {
+		parts := strings.Split(segment, "|")
+		if len(parts) != 3 {
+			continue
+		}
+		
+		// Parse segment parameters
+		var startLed, count int
+		color := parts[2]
+		
+		if _, err := fmt.Sscanf(parts[0], "%d", &startLed); err != nil {
+			continue
+		}
+		if _, err := fmt.Sscanf(parts[1], "%d", &count); err != nil {
+			continue
+		}
+		
+		// Apply color to LEDs
+		for i := 0; i < count && startLed+i < 15; i++ {
+			colors[startLed+i] = color
+		}
+	}
+	
+	return colors
 }

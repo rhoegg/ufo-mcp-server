@@ -11,14 +11,16 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/starspace46/ufo-mcp-go/internal/device"
 	"github.com/starspace46/ufo-mcp-go/internal/events"
+	"github.com/starspace46/ufo-mcp-go/internal/state"
 )
 
 func TestSetBrightnessTool_Definition(t *testing.T) {
 	client := device.NewClient()
 	broadcaster := events.NewBroadcaster()
 	defer broadcaster.Close()
+	stateManager := state.NewManager(broadcaster)
 
-	tool := NewSetBrightnessTool(client, broadcaster)
+	tool := NewSetBrightnessTool(client, broadcaster, stateManager)
 	def := tool.Definition()
 
 	if def.Name != "setBrightness" {
@@ -69,7 +71,7 @@ func TestSetBrightnessTool_Execute(t *testing.T) {
 	broadcaster := events.NewBroadcaster()
 	defer broadcaster.Close()
 
-	tool := NewSetBrightnessTool(client, broadcaster)
+	tool := NewSetBrightnessTool(client, broadcaster, state.NewManager(broadcaster))
 
 	tests := []struct {
 		name           string
@@ -198,7 +200,7 @@ func TestSetBrightnessTool_EventPublishing(t *testing.T) {
 	defer broadcaster.Close()
 
 	sub := broadcaster.Subscribe("test")
-	tool := NewSetBrightnessTool(client, broadcaster)
+	tool := NewSetBrightnessTool(client, broadcaster, state.NewManager(broadcaster))
 
 	arguments := map[string]interface{}{
 		"level": 128,

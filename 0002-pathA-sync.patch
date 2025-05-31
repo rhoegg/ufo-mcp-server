@@ -1,0 +1,89 @@
+--- MCP_UFO_PLAN.md
++++ MCP_UFO_PLAN.md
+@@
+-* Network: UFO reachable at $UFO_IP (env var) via HTTP
++* Network: UFO reachable at $UFO_IP (env var) via HTTP
++* **Shadow LED state (Path A):** in-memory copy exposed via `getLedState`
+@@
+-| stateEvents    | Stream   | Pushes effect_started, effect_stopped, dim_changed, button_press, raw_executed. | – | SSE |
++| **getLedState** | Resource | NEW – returns JSON shadow state `{top[15],bottom[15],logoOn,effect,dim}` | – | – |
++| **stateEvents** | Stream   | Pushes effect_started, effect_stopped, **ring_update**, dim_changed, button_press, raw_executed | – | SSE |
+-Total = **11** capabilities
++Total = **12** capabilities
+@@
+ ## 2 Effect Object Schema
++## 2a Shadow LED State (Path A)
++```go
++type LedState struct {
++    Top    [15]string
++    Bottom [15]string
++    LogoOn bool
++    Effect string
++    Dim    int
++}
++```
++*Guarded by `sync.RWMutex`. Mutating tools update this before emitting `ring_update`.*
++
++---
++
+ ## 3 Server Architecture
+-*Main goroutine*
++Updated Mermaid diagram (adds shadow state):
++```mermaid
++graph TD
++    clientTools((JSON-RPC))
++    sseFan(SSE /stateEvents)
++    store[(effects.json)]
++    curState[shadow LED state]
++    device[UFO /api]
++    clientTools -- writes --> curState & device
++    curState -- ring_update --> sseFan
++    buttonPoll((button poller)) --> sseFan
++    store <--> clientTools
++```
+--- CLAUDE.md
++++ CLAUDE.md
+@@
+-🛠 Coding Checklist
++🛠 Coding Checklist (append)
+ …
+ - Unit tests for CRUD & ring pattern builder.
++- **NEW:** create `internal/state`; update mutating tools; expose `getLedState`; emit `ring_update`; add `state_test.go`.
+@@
+-✔️ Definition of Done
++✔️ Definition of Done (update)
+ - go test ./... -race clean.
+ - curl …/getLedState returns expected JSON after any mutating tool.
+ - SSE subscriber receives `ring_update` events.
+--- README.md
++++ README.md
+@@
+-✅ **Available Tools (1/11)**
+- - `sendRawApi`
+-🔲 **Remaining Tools (10/11)**
++✅ **Available Tools (2/12)**
++ - `sendRawApi`
++ - `getLedState`
++🔲 **Remaining Tools (10/12)**
+    (setRingPattern, …)
+--- TESTING.md
++++ TESTING.md
+@@
+ ### 2. UFO Status Test
+ …
+ ### 3. Raw API Command Test
+ …
++### 4. LED State Resource Test (Path A)
++
++**Objective**: Verify `getLedState` returns shadow copy and `ring_update` is broadcast.
++
++**Steps**:
++1. Call `setRingPattern` to paint top LED 0 red.
++2. Immediately call `getLedState`.
++3. Subscribe to `stateEvents` and look for `ring_update`.
++
++**Expected**:
++* `getLedState` JSON shows `top[0] == \"FF0000\"`.
++* A `ring_update` event arrives within 1 s.
++
+--- end patch

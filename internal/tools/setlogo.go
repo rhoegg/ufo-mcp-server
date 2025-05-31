@@ -7,19 +7,22 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/starspace46/ufo-mcp-go/internal/device"
 	"github.com/starspace46/ufo-mcp-go/internal/events"
+	"github.com/starspace46/ufo-mcp-go/internal/state"
 )
 
 // SetLogoTool implements the setLogo MCP tool
 type SetLogoTool struct {
-	client      *device.Client
-	broadcaster *events.Broadcaster
+	client       *device.Client
+	broadcaster  *events.Broadcaster
+	stateManager *state.Manager
 }
 
 // NewSetLogoTool creates a new setLogo tool instance
-func NewSetLogoTool(client *device.Client, broadcaster *events.Broadcaster) *SetLogoTool {
+func NewSetLogoTool(client *device.Client, broadcaster *events.Broadcaster, stateManager *state.Manager) *SetLogoTool {
 	return &SetLogoTool{
-		client:      client,
-		broadcaster: broadcaster,
+		client:       client,
+		broadcaster:  broadcaster,
+		stateManager: stateManager,
 	}
 }
 
@@ -102,6 +105,9 @@ func (t *SetLogoTool) Execute(ctx context.Context, arguments map[string]interfac
 		}, nil
 	}
 
+	// Update shadow state
+	t.stateManager.UpdateLogo(state == "on")
+	
 	// Publish the successful execution event
 	t.broadcaster.PublishRawExecuted(fmt.Sprintf("logo=%s", state), "OK")
 

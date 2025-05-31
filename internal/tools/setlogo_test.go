@@ -11,6 +11,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/starspace46/ufo-mcp-go/internal/device"
 	"github.com/starspace46/ufo-mcp-go/internal/events"
+	"github.com/starspace46/ufo-mcp-go/internal/state"
 )
 
 func TestSetLogoTool_Definition(t *testing.T) {
@@ -18,7 +19,7 @@ func TestSetLogoTool_Definition(t *testing.T) {
 	broadcaster := events.NewBroadcaster()
 	defer broadcaster.Close()
 
-	tool := NewSetLogoTool(client, broadcaster)
+	tool := NewSetLogoTool(client, broadcaster, state.NewManager(broadcaster))
 	def := tool.Definition()
 
 	if def.Name != "setLogo" {
@@ -64,7 +65,7 @@ func TestSetLogoTool_Execute(t *testing.T) {
 	broadcaster := events.NewBroadcaster()
 	defer broadcaster.Close()
 
-	tool := NewSetLogoTool(client, broadcaster)
+	tool := NewSetLogoTool(client, broadcaster, state.NewManager(broadcaster))
 
 	tests := []struct {
 		name           string
@@ -167,7 +168,7 @@ func TestSetLogoTool_EventPublishing(t *testing.T) {
 	defer broadcaster.Close()
 
 	sub := broadcaster.Subscribe("test")
-	tool := NewSetLogoTool(client, broadcaster)
+	tool := NewSetLogoTool(client, broadcaster, state.NewManager(broadcaster))
 
 	arguments := map[string]interface{}{
 		"state": "on",

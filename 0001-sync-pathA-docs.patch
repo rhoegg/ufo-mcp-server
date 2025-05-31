@@ -1,0 +1,114 @@
+diff --git a/MCP_UFO_PLAN.md b/MCP_UFO_PLAN.md
+@@
+-* Persistence: `effects.json` in `/data`
+-* Network: UFO reachable at `$UFO_IP` (env var) via HTTP
++* Persistence: `effects.json` in `/data`
++* Network: UFO reachable at `$UFO_IP` (env var) via HTTP
++* **Shadow LED state (Path A):** in-memory copy exposed via `getLedState`
+ 
+@@
+-| Name | Kind | Description | Key Params | Streaming |
+-|------|------|-------------|-----------|-----------|
+-| `sendRawApi` | Tool | Fire a raw query string exactly as typed in the UFO web UI. | `query` (string) | ❌ |
+-| `setRingPattern` | Tool | High-level wrapper around `*_init`, `*_bg`, `*_whirl`, `*_morph`. | `ring`, `segments[]`, `background?`, `whirlMs?`, `morphSpec?` | ❌ |
+-| `setLogo` | Tool | Turn Dynatrace logo LED on/off. | `state` ("on"/"off") | ❌ |
+-| `setBrightness` | Tool | Global dim 0-255. | `level` (int) | ❌ |
+-| `playEffect` | Tool | Run built-in or user-defined effect for _n_ seconds; streams progress. | `name`, `seconds?=10` | ✅ |
+-| `stopEffects` | Tool | Cancel any running effect. | – | ✅ |
+-| `addEffect`/`updateEffect`/`deleteEffect`/`listEffects` | Tools | CRUD effect catalogue | … | ❌ |
+-| `getStatus` | Resource | Wi-Fi, IP, firmware, uptime, brightness, runningEffect | – | – |
+-| `stateEvents` | Stream | Pushes `effect_started`, `effect_stopped`, `dim_changed`, `button_press`, `raw_executed` | – | SSE |
++| Name | Kind | Description | Key Params | Streaming |
++|------|------|-------------|-----------|-----------|
++| **`sendRawApi`** | Tool | Fire a raw query string exactly as typed in the UFO web UI. | `query` (string) | ❌ |
++| **`setRingPattern`** | Tool | High-level wrapper around `*_init`, `*_bg`, `*_whirl`, `*_morph`. | `ring`, `segments[]`, `background?`, `whirlMs?`, `morphSpec?` | ❌ |
++| **`setLogo`** | Tool | Turn Dynatrace logo LED on/off. | `state` ("on"/"off") | ❌ |
++| **`setBrightness`** | Tool | Global dim 0-255; updates shadow state. | `level` (int) | ❌ |
++| **`playEffect`** | Tool | Run built-in or user-defined effect for _n_ s; streams progress; updates shadow state. | `name`, `seconds?=10` | ✅ |
++| **`stopEffects`** | Tool | Cancel any running effect; updates shadow state. | – | ✅ |
++| **`addEffect` / `updateEffect` / `deleteEffect` / `listEffects`** | Tools | CRUD effect catalogue | – | ❌ |
++| **`getStatus`** | Resource | Wi-Fi, IP, firmware, uptime, brightness, runningEffect | – | – |
++| **`getLedState`** | Resource | _NEW_ – returns shadow copy `{top[15], bottom[15], logoOn, effect, dim}` | – | – |
++| **`stateEvents`** | Stream | Pushes `effect_started`, `effect_stopped`, `dim_changed`, `ring_update`, `button_press`, `raw_executed` | – | SSE |
+ 
+-Total = **11** capabilities
++Total = **12** capabilities
+ 
+@@
+-## 2  Effect Object Schema
++## 2  Shadow LED State  _(Path A)_
++
++```go
++type LedState struct {
++    Top    [15]string // hex colours
++    Bottom [15]string
++    LogoOn bool
++    Effect string
++    Dim    int
++}
++```
++
++*Guarded by `sync.RWMutex`.  Mutating tools must update this struct **before** emitting `ring_update` on the SSE bus.*
++
++---
++
++## 3  Effect Object Schema
+ 
+@@
+-## 3  Server Architecture
++## 4  Server Architecture (updated)
+@@
+-subgraph MCP Server
++subgraph MCP Server
+     clientTools((JSON-RPC))
+@@
+-    store[( effects.json )]
+-    curState[shadow LED state]
++    store[(effects.json)]
++    curState[shadow LED state]
+@@
+ 
+ ## 5  Build & Run
+@@
+ 
+-## 6  Future Enhancements
++## 6  Checklist delta (Path A)
++* Implement `internal/state` package and mutex.
++* Add `getLedState` resource.
++* Emit `ring_update` inside `state.Update`.
++* Extend unit/integration tests.
++
++---
++
++## 7  Future Enhancements
+diff --git a/CLAUDE.md b/CLAUDE.md
+@@
+ ### 🛠 Coding Checklist
+ …
+ * Unit tests for CRUD & ring pattern builder.
++* **NEW:** implement `internal/state`; update mutating tools; add `getLedState` resource; emit `ring_update`; new tests `state_test.go`.
+ 
+ ### Definition of Done
+-* All checklist boxes ticked.
++* All checklist boxes ticked, including shadow-state items.
+ * `go test ./... -race` clean.
+-* `curl .../getLedState` returns expected JSON after any mutating tool.
+-* SSE subscriber receives `ring_update` events.
++* `curl .../getLedState` returns expected JSON after any mutating tool.
++* SSE subscriber receives `ring_update` events.
+diff --git a/README.md b/README.md
+@@
+-| **Current implementation status**  
+-| `✔ sendRawApi`    `❌ 10 tools remaining`
++| **Current implementation status**  
++| `✔ sendRawApi`  `✔ getLedState`    `❌ 10 tools remaining`
++
++Shadow LED state (Path A) is now wired in: every colour/effect change updates an in-memory struct and broadcasts `ring_update` to subscribers.
+diff --git a/TESTING.md b/TESTING.md
+@@
+ ## Manual tests
+ 1. Launch server with mock UFO (env `UFO_IP=http://localhost:8000`).
+ 2. **sendRawApi** paints top ring red → UFO responds `OK`.
++3. **getLedState** returns JSON and shows 5 red LEDs in `top`.
++4. Subscribe to `/stateEvents` and verify `ring_update` arrives after step 2.
+ 5. Add effect → list effects shows new entry.

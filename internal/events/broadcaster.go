@@ -18,6 +18,7 @@ const (
 	EventEffectStarted = "effect_started"
 	EventEffectStopped = "effect_stopped"
 	EventDimChanged    = "dim_changed"
+	EventRingUpdate    = "ring_update"
 	EventButtonPress   = "button_press"
 	EventRawExecuted   = "raw_executed"
 	EventProgress      = "progress"
@@ -142,6 +143,20 @@ func (b *Broadcaster) PublishRawExecuted(query string, result string) {
 			"query":  query,
 			"result": result,
 		},
+	})
+}
+
+// PublishRingUpdate publishes a ring LED update event
+func (b *Broadcaster) PublishRingUpdate(ring string, data map[string]interface{}) {
+	eventData := map[string]interface{}{
+		"ring": ring,
+	}
+	for k, v := range data {
+		eventData[k] = v
+	}
+	b.Publish(Event{
+		Type: EventRingUpdate,
+		Data: eventData,
 	})
 }
 

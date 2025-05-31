@@ -15,6 +15,7 @@ import (
 	"github.com/starspace46/ufo-mcp-go/internal/device"
 	"github.com/starspace46/ufo-mcp-go/internal/effects"
 	"github.com/starspace46/ufo-mcp-go/internal/events"
+	"github.com/starspace46/ufo-mcp-go/internal/state"
 	"github.com/starspace46/ufo-mcp-go/internal/tools"
 )
 
@@ -51,6 +52,7 @@ func main() {
 	deviceClient := device.NewClient()
 	broadcaster := events.NewBroadcaster()
 	effectsStore := effects.NewStore(effectsFile)
+	stateManager := state.NewManager(broadcaster)
 
 	// Load effects (creates seed effects if file doesn't exist)
 	if err := effectsStore.Load(); err != nil {
@@ -58,7 +60,7 @@ func main() {
 	}
 
 	// Create MCP server
-	mcpServer := createMCPServer(deviceClient, broadcaster, effectsStore)
+	mcpServer := createMCPServer(deviceClient, broadcaster, effectsStore, stateManager)
 
 	// Handle graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -81,7 +83,7 @@ func main() {
 	}
 }
 
-func createMCPServer(deviceClient *device.Client, broadcaster *events.Broadcaster, effectsStore *effects.Store) *server.MCPServer {
+func createMCPServer(deviceClient *device.Client, broadcaster *events.Broadcaster, effectsStore *effects.Store, stateManager *state.Manager) *server.MCPServer {
 	// Create server with capabilities
 	mcpServer := server.NewMCPServer(
 		ServerName,
@@ -98,19 +100,24 @@ Available capabilities:
 - Store and manage custom lighting effects
 - Real-time event streaming for state changes
 
-Use sendRawApi for direct UFO control or the high-level tools for common operations.`),
+Resources:
+- ufo://status - Get UFO device status
+- ufo://ledstate - Get current LED colors, brightness, logo state, and running effect (shadow state)
+
+Use sendRawApi for direct UFO control or the high-level tools for common operations.
+To check current LED colors, read the ufo://ledstate resource.`),
 	)
 
 	// Register tools
-	registerTools(mcpServer, deviceClient, broadcaster, effectsStore)
+	registerTools(mcpServer, deviceClient, broadcaster, effectsStore, stateManager)
 
 	// Register resources
-	registerResources(mcpServer, deviceClient)
+	registerResources(mcpServer, deviceClient, stateManager)
 
 	return mcpServer
 }
 
-func registerTools(mcpServer *server.MCPServer, deviceClient *device.Client, broadcaster *events.Broadcaster, effectsStore *effects.Store) {
+func registerTools(mcpServer *server.MCPServer, deviceClient *device.Client, broadcaster *events.Broadcaster, effectsStore *effects.Store, stateManager *state.Manager) {
 	// sendRawApi tool
 	sendRawApiTool := tools.NewSendRawApiTool(deviceClient, broadcaster)
 	mcpServer.AddTool(sendRawApiTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -118,24 +125,30 @@ func registerTools(mcpServer *server.MCPServer, deviceClient *device.Client, bro
 	})
 
 	// setLogo tool
-	setLogoTool := tools.NewSetLogoTool(deviceClient, broadcaster)
+	setLogoTool := tools.NewSetLogoTool(deviceClient, broadcaster, stateManager)
 	mcpServer.AddTool(setLogoTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		return setLogoTool.Execute(ctx, request.GetArguments())
 	})
 
 	// setBrightness tool
-	setBrightnessTool := tools.NewSetBrightnessTool(deviceClient, broadcaster)
+	setBrightnessTool := tools.NewSetBrightnessTool(deviceClient, broadcaster, stateManager)
 	mcpServer.AddTool(setBrightnessTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		return setBrightnessTool.Execute(ctx, request.GetArguments())
 	})
 
 	// setRingPattern tool
-	setRingPatternTool := tools.NewSetRingPatternTool(deviceClient, broadcaster)
+	setRingPatternTool := tools.NewSetRingPatternTool(deviceClient, broadcaster, stateManager)
 	mcpServer.AddTool(setRingPatternTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		return setRingPatternTool.Execute(ctx, request.GetArguments())
 	})
 
-	// TODO: Add remaining 6 tools here:
+	// getLedState tool
+	getLedStateTool := tools.NewGetLedStateTool(stateManager)
+	mcpServer.AddTool(getLedStateTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return getLedStateTool.Execute(ctx, request.GetArguments())
+	})
+
+	// TODO: Add remaining 5 tools here:
 	// - playEffect
 	// - stopEffects
 	// - addEffect
@@ -144,7 +157,7 @@ func registerTools(mcpServer *server.MCPServer, deviceClient *device.Client, bro
 	// - listEffects
 }
 
-func registerResources(mcpServer *server.MCPServer, deviceClient *device.Client) {
+func registerResources(mcpServer *server.MCPServer, deviceClient *device.Client, stateManager *state.Manager) {
 	// getStatus resource
 	mcpServer.AddResource(
 		mcp.Resource{
@@ -171,6 +184,31 @@ func registerResources(mcpServer *server.MCPServer, deviceClient *device.Client)
 					URI:      request.Params.URI,
 					MIMEType: "application/json",
 					Text:     statusJSON,
+				},
+			}, nil
+		},
+	)
+
+	// getLedState resource
+	mcpServer.AddResource(
+		mcp.Resource{
+			URI:         "ufo://ledstate",
+			Name:        "UFO LED State",
+			Description: "Current LED state (shadow copy) showing colors, brightness, logo state, and running effect",
+			MIMEType:    "application/json",
+		},
+		func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+			// Get the current LED state
+			ledStateJSON, err := stateManager.ToJSON()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get LED state: %w", err)
+			}
+
+			return []mcp.ResourceContents{
+				mcp.TextResourceContents{
+					URI:      request.Params.URI,
+					MIMEType: "application/json",
+					Text:     ledStateJSON,
 				},
 			}, nil
 		},

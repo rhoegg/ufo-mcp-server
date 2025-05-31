@@ -10,6 +10,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/starspace46/ufo-mcp-go/internal/device"
 	"github.com/starspace46/ufo-mcp-go/internal/events"
+	"github.com/starspace46/ufo-mcp-go/internal/state"
 )
 
 func TestSetRingPatternTool_Definition(t *testing.T) {
@@ -17,7 +18,7 @@ func TestSetRingPatternTool_Definition(t *testing.T) {
 	broadcaster := events.NewBroadcaster()
 	defer broadcaster.Close()
 
-	tool := NewSetRingPatternTool(client, broadcaster)
+	tool := NewSetRingPatternTool(client, broadcaster, state.NewManager(broadcaster))
 	def := tool.Definition()
 
 	if def.Name != "setRingPattern" {
@@ -52,7 +53,7 @@ func TestSetRingPatternTool_Execute_WithSegments(t *testing.T) {
 	broadcaster := events.NewBroadcaster()
 	defer broadcaster.Close()
 
-	tool := NewSetRingPatternTool(client, broadcaster)
+	tool := NewSetRingPatternTool(client, broadcaster, state.NewManager(broadcaster))
 
 	tests := []struct {
 		name           string
@@ -164,7 +165,7 @@ func TestSetRingPatternTool_Execute_NoSegments_ShouldFail(t *testing.T) {
 	broadcaster := events.NewBroadcaster()
 	defer broadcaster.Close()
 
-	tool := NewSetRingPatternTool(client, broadcaster)
+	tool := NewSetRingPatternTool(client, broadcaster, state.NewManager(broadcaster))
 
 	// Test: ring only, no segments (this is what caused the bug)
 	arguments := map[string]interface{}{
@@ -200,7 +201,7 @@ func TestSetRingPatternTool_Execute_ValidationErrors(t *testing.T) {
 	broadcaster := events.NewBroadcaster()
 	defer broadcaster.Close()
 
-	tool := NewSetRingPatternTool(client, broadcaster)
+	tool := NewSetRingPatternTool(client, broadcaster, state.NewManager(broadcaster))
 
 	tests := []struct {
 		name        string
