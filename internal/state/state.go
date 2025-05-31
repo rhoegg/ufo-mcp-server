@@ -158,6 +158,14 @@ func (m *Manager) Reset() {
 	})
 }
 
+// SetActiveEffect updates the currently running effect
+func (m *Manager) SetActiveEffect(effectName string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.state.Effect = effectName
+}
+
 // ToJSON serializes the current state to JSON
 func (m *Manager) ToJSON() (string, error) {
 	m.mu.RLock()

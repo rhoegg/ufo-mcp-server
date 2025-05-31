@@ -68,6 +68,12 @@ func (t *SetRingPatternTool) Definition() mcp.Tool {
 					"maximum":     510,
 					"examples":    []int{100, 200, 300, 500},
 				},
+				"counterClockwise": map[string]interface{}{
+					"type":        "boolean",
+					"description": "Set to true for counter-clockwise rotation (optional, default is false for clockwise)",
+					"default":     false,
+					"examples":    []bool{true, false},
+				},
 				"morphSpec": map[string]interface{}{
 					"type":        "string",
 					"description": "Fade effect specification in format 'STAY|SPEED' in milliseconds (optional)",
@@ -228,6 +234,25 @@ func (t *SetRingPatternTool) Execute(ctx context.Context, arguments map[string]i
 		}
 	}
 
+	// Extract optional counter-clockwise flag
+	var counterClockwise bool
+	if ccwArg, exists := arguments["counterClockwise"]; exists {
+		switch v := ccwArg.(type) {
+		case bool:
+			counterClockwise = v
+		default:
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					mcp.TextContent{
+						Type: "text",
+						Text: "Error: 'counterClockwise' parameter must be a boolean",
+					},
+				},
+				IsError: true,
+			}, nil
+		}
+	}
+
 	// Extract optional morph spec
 	var morphSpec string
 	if morphArg, exists := arguments["morphSpec"]; exists {
@@ -258,10 +283,10 @@ func (t *SetRingPatternTool) Execute(ctx context.Context, arguments map[string]i
 	}
 
 	// Execute the ring pattern command
-	err := t.client.SetRingPattern(ctx, ring, segments, background, whirlMs, morphSpec)
+	err := t.client.SetRingPattern(ctx, ring, segments, background, whirlMs, counterClockwise, morphSpec)
 	if err != nil {
 		// Publish the failed execution event
-		command := buildRingPatternCommand(ring, segments, background, whirlMs, morphSpec)
+		command := buildRingPatternCommand(ring, segments, background, whirlMs, counterClockwise, morphSpec)
 		t.broadcaster.PublishRawExecuted(command, fmt.Sprintf("ERROR: %v", err))
 		
 		return &mcp.CallToolResult{
@@ -281,7 +306,7 @@ func (t *SetRingPatternTool) Execute(ctx context.Context, arguments map[string]i
 	t.stateManager.UpdateRingSegments(ring, ledColors, background)
 	
 	// Publish the successful execution event
-	command := buildRingPatternCommand(ring, segments, background, whirlMs, morphSpec)
+	command := buildRingPatternCommand(ring, segments, background, whirlMs, counterClockwise, morphSpec)
 	t.broadcaster.PublishRawExecuted(command, "OK")
 
 	// Build success message
@@ -293,7 +318,11 @@ func (t *SetRingPatternTool) Execute(ctx context.Context, arguments map[string]i
 		message += fmt.Sprintf(", background: #%s", background)
 	}
 	if whirlMs > 0 {
-		message += fmt.Sprintf(", rotation: %dms", whirlMs)
+		direction := "clockwise"
+		if counterClockwise {
+			direction = "counter-clockwise"
+		}
+		message += fmt.Sprintf(", rotation: %dms %s", whirlMs, direction)
 	}
 	if morphSpec != "" {
 		message += fmt.Sprintf(", fade: %s", morphSpec)
@@ -338,7 +367,7 @@ func isValidMorphSpec(spec string) bool {
 	return len(parts) == 2
 }
 
-func buildRingPatternCommand(ring string, segments []string, background string, whirlMs int, morphSpec string) string {
+func buildRingPatternCommand(ring string, segments []string, background string, whirlMs int, counterClockwise bool, morphSpec string) string {
 	var parts []string
 	
 	// Add init
@@ -355,9 +384,13 @@ func buildRingPatternCommand(ring string, segments []string, background string, 
 		parts = append(parts, fmt.Sprintf("%s_bg=%s", ring, background))
 	}
 	
-	// Add whirl
+	// Add whirl with optional counter-clockwise
 	if whirlMs > 0 {
-		parts = append(parts, fmt.Sprintf("%s_whirl=%d", ring, whirlMs))
+		whirlValue := fmt.Sprintf("%d", whirlMs)
+		if counterClockwise {
+			whirlValue += "|ccw"
+		}
+		parts = append(parts, fmt.Sprintf("%s_whirl=%s", ring, whirlValue))
 	}
 	
 	// Add morph

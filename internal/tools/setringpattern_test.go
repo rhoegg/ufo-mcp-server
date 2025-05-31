@@ -355,10 +355,19 @@ func TestBuildRingPatternCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildRingPatternCommand(tt.ring, tt.segments, tt.background, tt.whirlMs, tt.morphSpec)
+			result := buildRingPatternCommand(tt.ring, tt.segments, tt.background, tt.whirlMs, false, tt.morphSpec)
 			if result != tt.expected {
 				t.Errorf("expected '%s', got '%s'", tt.expected, result)
 			}
 		})
 	}
+
+	// Test counter-clockwise rotation
+	t.Run("counter-clockwise rotation", func(t *testing.T) {
+		result := buildRingPatternCommand("top", []string{"0|5|FF0000"}, "", 400, true, "")
+		expected := "top_init=1&top=0|5|FF0000&top_whirl=400|ccw"
+		if result != expected {
+			t.Errorf("expected '%s', got '%s'", expected, result)
+		}
+	})
 }

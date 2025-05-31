@@ -15,9 +15,10 @@ type Event struct {
 
 // EventType constants
 const (
-	EventEffectStarted = "effect_started"
-	EventEffectStopped = "effect_stopped"
-	EventDimChanged    = "dim_changed"
+	EventEffectStarted   = "effect_started"
+	EventEffectStopped   = "effect_stopped"
+	EventEffectCompleted = "effect_completed"
+	EventDimChanged      = "dim_changed"
 	EventRingUpdate    = "ring_update"
 	EventButtonPress   = "button_press"
 	EventRawExecuted   = "raw_executed"

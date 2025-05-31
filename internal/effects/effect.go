@@ -176,9 +176,9 @@ func (s *Store) initSeedEffects() {
 		},
 		{
 			Name:        "policeLights",
-			Description: "Alternating red/blue flash",
-			Pattern:     "top_init=1&bottom_init=1&top_bg=ff0000&bottom_bg=0000ff&top_whirl=500&bottom_whirl=500",
-			Duration:    20,
+			Description: "Realistic police light bar with rotating red/blue",
+			Pattern:     "top_init=1&bottom_init=1&top=10|1|ffffff&top=0|1|0000ff&top=1|1|000080&top=2|1|000040&top=3|1|000020&top=4|1|000010&top=5|1|000008&top=6|1|000004&top_whirl=252&bottom=4|1|ffffff&bottom=15|1|ff0000&bottom=14|1|800000&bottom=13|1|400000&bottom=12|1|200000&bottom=11|1|100000&bottom=10|1|080000&bottom=9|1|040000&bottom_whirl=250|ccw",
+			Duration:    30,
 		},
 		{
 			Name:        "breathingGreen",

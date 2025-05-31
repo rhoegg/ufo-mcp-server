@@ -89,28 +89,26 @@ Once configured, you can ask Claude to:
 - Effect storage with persistence
 - Event broadcasting system
 
-✅ **Available Tools (5/13)**
-- `sendRawApi` - Execute raw UFO API commands
+✅ **Available Tools (6/7 exposed)**
+- `sendRawApi` - Execute raw UFO API commands (use dim=0-255 for brightness)
 - `setRingPattern` - Control ring lighting patterns
 - `setLogo` - Control Dynatrace logo LED  
-- `setBrightness` - Adjust global brightness
 - `getLedState` - Get current LED shadow state
-
-🔲 **Remaining Tools (8/13)**
-- `playEffect` - Run lighting effects with progress
-- `stopEffects` - Cancel running effects
-- `addEffect` - Create new effects
-- `updateEffect` - Modify existing effects  
-- `deleteEffect` - Remove effects
 - `listEffects` - Show all available effects
-- `getLedState` - Get the current state of the LEDs
+- `playEffect` - Play a lighting effect by name
 
+🔲 **Remaining Tools (1/7)**
+- `stopEffects` - Cancel running effects (requires streaming)
 
-✅ **Resources (1/2)**
-- `getStatus` - UFO device status
+💾 **Implemented but not exposed via MCP**
+- `setBrightness` - Adjust brightness (use dim parameter in patterns instead)
+- `addEffect` - Create new effects (available internally)
+- `updateEffect` - Modify existing effects (available internally)
+- `deleteEffect` - Remove effects (available internally)
 
-🔲 **Remaining Resources (1/2)**
-- `getLedState` - Get current LED shadow state
+✅ **Resources (2/2)**
+- `ufo://status` - UFO device status
+- `ufo://ledstate` - Current LED shadow state
 
 🔲 **Streaming**
 - `stateEvents` - Real-time event stream (SSE)

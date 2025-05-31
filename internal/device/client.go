@@ -80,7 +80,7 @@ func (c *Client) GetStatus(ctx context.Context) (map[string]interface{}, error) 
 }
 
 // SetRingPattern sends a ring pattern command to the UFO
-func (c *Client) SetRingPattern(ctx context.Context, ring string, segments []string, background string, whirlMs int, morphSpec string) error {
+func (c *Client) SetRingPattern(ctx context.Context, ring string, segments []string, background string, whirlMs int, counterClockwise bool, morphSpec string) error {
 	// Build query manually to avoid URL encoding of pipe characters
 	var queryParts []string
 
@@ -110,9 +110,13 @@ func (c *Client) SetRingPattern(ctx context.Context, ring string, segments []str
 		queryParts = append(queryParts, fmt.Sprintf("%s_bg=%s", ring, background))
 	}
 
-	// Add whirl
+	// Add whirl with optional counter-clockwise rotation
 	if whirlMs > 0 {
-		queryParts = append(queryParts, fmt.Sprintf("%s_whirl=%d", ring, whirlMs))
+		whirlValue := fmt.Sprintf("%d", whirlMs)
+		if counterClockwise {
+			whirlValue += "|ccw"
+		}
+		queryParts = append(queryParts, fmt.Sprintf("%s_whirl=%s", ring, whirlValue))
 	}
 
 	// Add morph

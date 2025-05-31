@@ -130,11 +130,8 @@ func registerTools(mcpServer *server.MCPServer, deviceClient *device.Client, bro
 		return setLogoTool.Execute(ctx, request.GetArguments())
 	})
 
-	// setBrightness tool
-	setBrightnessTool := tools.NewSetBrightnessTool(deviceClient, broadcaster, stateManager)
-	mcpServer.AddTool(setBrightnessTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return setBrightnessTool.Execute(ctx, request.GetArguments())
-	})
+	// setBrightness tool - implemented but not exposed via MCP
+	// Brightness can be controlled via dim parameter in patterns
 
 	// setRingPattern tool
 	setRingPatternTool := tools.NewSetRingPatternTool(deviceClient, broadcaster, stateManager)
@@ -148,13 +145,26 @@ func registerTools(mcpServer *server.MCPServer, deviceClient *device.Client, bro
 		return getLedStateTool.Execute(ctx, request.GetArguments())
 	})
 
-	// TODO: Add remaining 5 tools here:
-	// - playEffect
-	// - stopEffects
+	// listEffects tool
+	listEffectsTool := tools.NewListEffectsTool(effectsStore)
+	mcpServer.AddTool(listEffectsTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return listEffectsTool.Execute(ctx, request.GetArguments())
+	})
+
+	// Effects CRUD tools are implemented but not exposed via MCP
+	// They remain available for internal use or future activation
 	// - addEffect
-	// - updateEffect
+	// - updateEffect  
 	// - deleteEffect
-	// - listEffects
+
+	// playEffect tool
+	playEffectTool := tools.NewPlayEffectTool(deviceClient, broadcaster, effectsStore, stateManager)
+	mcpServer.AddTool(playEffectTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return playEffectTool.Execute(ctx, request.GetArguments())
+	})
+
+	// TODO: Add remaining 1 tool here:
+	// - stopEffects (with streaming)
 }
 
 func registerResources(mcpServer *server.MCPServer, deviceClient *device.Client, stateManager *state.Manager) {
