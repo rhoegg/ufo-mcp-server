@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -17,11 +19,14 @@ import (
 	"github.com/starspace46/ufo-mcp-go/internal/events"
 	"github.com/starspace46/ufo-mcp-go/internal/state"
 	"github.com/starspace46/ufo-mcp-go/internal/tools"
+	"github.com/starspace46/ufo-mcp-go/internal/version"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 )
 
 const (
 	ServerName    = "dynatrace-ufo"
-	ServerVersion = "1.0.0"
+	ServerVersion = "0.4.1"
 )
 
 func main() {
@@ -163,8 +168,17 @@ func registerTools(mcpServer *server.MCPServer, deviceClient *device.Client, bro
 		return playEffectTool.Execute(ctx, request.GetArguments())
 	})
 
-	// TODO: Add remaining 1 tool here:
-	// - stopEffects (with streaming)
+	// configureLighting tool - unified lighting control
+	configureLightingTool := tools.NewConfigureLightingTool(deviceClient, broadcaster, stateManager)
+	mcpServer.AddTool(configureLightingTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return configureLightingTool.Execute(ctx, request.GetArguments())
+	})
+
+	// stopEffect tool - pops the current effect from the stack and resumes the previous one
+	stopEffectTool := tools.NewStopEffectTool(deviceClient, broadcaster, stateManager)
+	mcpServer.AddTool(stopEffectTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return stopEffectTool.Execute(ctx, request.GetArguments())
+	})
 }
 
 func registerResources(mcpServer *server.MCPServer, deviceClient *device.Client, stateManager *state.Manager) {
@@ -225,20 +239,70 @@ func registerResources(mcpServer *server.MCPServer, deviceClient *device.Client,
 	)
 }
 
-func startHTTPServer(mcpServer *server.MCPServer, port string, ctx context.Context) {
-	httpServer := server.NewStreamableHTTPServer(mcpServer)
+var startTime = time.Now()
 
-	// Start HTTP server in a goroutine
+func startHTTPServer(mcpServer *server.MCPServer, port string, ctx context.Context) {
+	// Create the MCP streamable HTTP server
+	mcpHandler := server.NewStreamableHTTPServer(mcpServer)
+	
+	// Create a mux to handle both MCP and health check
+	mux := http.NewServeMux()
+	
+	// Mount MCP handler at /mcp
+	mux.Handle("/mcp", mcpHandler)
+	
+	// Add health check endpoint
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		
+		health := map[string]interface{}{
+			"status":      "healthy",
+			"version":     version.Version,
+			"gitCommit":   version.GitCommit,
+			"buildTime":   version.BuildTime,
+			"specVersion": version.SpecVersion,
+			"uptime":      time.Since(startTime).String(),
+		}
+		
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(health)
+	})
+	
+	// Create HTTP/2 server
+	h2s := &http2.Server{}
+	
+	// Create server with HTTP/2 support
+	httpServer := &http.Server{
+		Addr:         ":" + port,
+		Handler:      h2c.NewHandler(mux, h2s),
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 0, // No timeout for streaming
+		IdleTimeout:  120 * time.Second,
+	}
+	
+	// Start server with graceful shutdown
 	go func() {
-		addr := ":" + port
-		log.Printf("HTTP server listening on %s/mcp", addr)
-		if err := httpServer.Start(addr); err != nil && err != http.ErrServerClosed {
+		log.Printf("HTTP server listening on %s", httpServer.Addr)
+		log.Printf("  MCP endpoint: http://localhost%s/mcp", httpServer.Addr)
+		log.Printf("  Health check: http://localhost%s/healthz", httpServer.Addr)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("HTTP server error: %v", err)
 		}
 	}()
 
 	// Wait for shutdown signal
 	<-ctx.Done()
+	
+	// Graceful shutdown
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP server shutdown error: %v", err)
+	}
 	log.Println("HTTP server stopped")
 }
 

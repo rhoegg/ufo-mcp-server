@@ -16,10 +16,18 @@ type LedState struct {
 	Dim    int        `json:"dim"`    // brightness level 0-255
 }
 
+// EffectStackItem represents an effect in the stack
+type EffectStackItem struct {
+	Name      string                 // Effect name
+	Pattern   string                 // Effect pattern
+	Context   map[string]interface{} // Additional context (duration, perpetual, etc)
+}
+
 // Manager manages the shadow LED state with thread-safe operations
 type Manager struct {
 	mu          sync.RWMutex
 	state       *LedState
+	effectStack []EffectStackItem
 	broadcaster *events.Broadcaster
 }
 
@@ -177,6 +185,117 @@ func (m *Manager) ToJSON() (string, error) {
 	}
 
 	return string(data), nil
+}
+
+// PushEffect pushes a new effect onto the stack
+func (m *Manager) PushEffect(name, pattern string, context map[string]interface{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Add to stack
+	m.effectStack = append(m.effectStack, EffectStackItem{
+		Name:    name,
+		Pattern: pattern,
+		Context: context,
+	})
+
+	// Update current effect
+	m.state.Effect = name
+}
+
+// PopEffect removes the current effect from the stack and returns the new current effect
+func (m *Manager) PopEffect() *EffectStackItem {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if len(m.effectStack) == 0 {
+		m.state.Effect = ""
+		return nil
+	}
+
+	// Remove the top effect
+	m.effectStack = m.effectStack[:len(m.effectStack)-1]
+
+	// Update current effect to the new top of stack
+	if len(m.effectStack) > 0 {
+		current := &m.effectStack[len(m.effectStack)-1]
+		m.state.Effect = current.Name
+		return current
+	}
+
+	m.state.Effect = ""
+	return nil
+}
+
+// GetCurrentEffect returns the current effect from the top of the stack
+func (m *Manager) GetCurrentEffect() *EffectStackItem {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if len(m.effectStack) == 0 {
+		return nil
+	}
+
+	current := m.effectStack[len(m.effectStack)-1]
+	return &current
+}
+
+// GetEffectStackDepth returns the number of effects on the stack
+func (m *Manager) GetEffectStackDepth() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return len(m.effectStack)
+}
+
+// UpdateTopRing updates all LEDs on the top ring
+func (m *Manager) UpdateTopRing(colors []string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Update top ring colors
+	for i := 0; i < 15 && i < len(colors); i++ {
+		if colors[i] == "" {
+			m.state.Top[i] = "000000" // Default to black
+		} else {
+			m.state.Top[i] = colors[i]
+		}
+	}
+
+	// Fill remaining LEDs with black if colors array is shorter
+	for i := len(colors); i < 15; i++ {
+		m.state.Top[i] = "000000"
+	}
+
+	// Emit ring update event
+	m.broadcaster.PublishRingUpdate("top", map[string]interface{}{
+		"colors": colors,
+	})
+}
+
+// UpdateBottomRing updates all LEDs on the bottom ring
+func (m *Manager) UpdateBottomRing(colors []string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Update bottom ring colors
+	for i := 0; i < 15 && i < len(colors); i++ {
+		if colors[i] == "" {
+			m.state.Bottom[i] = "000000" // Default to black
+		} else {
+			m.state.Bottom[i] = colors[i]
+		}
+	}
+
+	// Fill remaining LEDs with black if colors array is shorter
+	for i := len(colors); i < 15; i++ {
+		m.state.Bottom[i] = "000000"
+	}
+
+	// Emit ring update event
+	m.broadcaster.PublishRingUpdate("bottom", map[string]interface{}{
+		"colors": colors,
+	})
 }
 
 // ParseRingCommand parses a ring pattern command and updates state accordingly

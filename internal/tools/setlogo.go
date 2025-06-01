@@ -30,7 +30,7 @@ func NewSetLogoTool(client *device.Client, broadcaster *events.Broadcaster, stat
 func (t *SetLogoTool) Definition() mcp.Tool {
 	return mcp.Tool{
 		Name:        "setLogo",
-		Description: "Turn the Dynatrace logo LED on or off. The logo is a small LED that displays the Dynatrace logo on the UFO device.",
+		Description: "Control the Dynatrace logo LED. Can turn it on/off or set custom colors. The logo supports two colors that can create gradients or patterns.",
 		InputSchema: mcp.ToolInputSchema{
 			Type: "object",
 			Properties: map[string]interface{}{
@@ -39,6 +39,18 @@ func (t *SetLogoTool) Definition() mcp.Tool {
 					"description": "Logo LED state - 'on' to turn on, 'off' to turn off",
 					"enum":        []string{"on", "off"},
 					"examples":    []string{"on", "off"},
+				},
+				"color1": map[string]interface{}{
+					"type":        "string",
+					"description": "First color in hex format (e.g., 'FF0000' for red). Optional - only used when state is 'on'",
+					"pattern":     "^[0-9A-Fa-f]{6}$",
+					"examples":    []string{"FF0000", "00FF00", "0000FF", "8B0000"},
+				},
+				"color2": map[string]interface{}{
+					"type":        "string",
+					"description": "Second color in hex format (e.g., 'FF6B6B' for light red). Optional - creates gradient with color1",
+					"pattern":     "^[0-9A-Fa-f]{6}$",
+					"examples":    []string{"FF6B6B", "90EE90", "ADD8E6", "FFB6C1"},
 				},
 			},
 			Required: []string{"state"},
@@ -88,17 +100,75 @@ func (t *SetLogoTool) Execute(ctx context.Context, arguments map[string]interfac
 		}, nil
 	}
 
+	// Extract optional color parameters
+	color1, _ := arguments["color1"].(string)
+	color2, _ := arguments["color2"].(string)
+
+	// Build the query string
+	var query string
+	
+	if state == "off" {
+		// When turning off, explicitly set to black pattern to ensure it turns off
+		// This handles cases where colors were previously set
+		query = "logo=000000|000000|000000|000000"
+	} else if state == "on" && (color1 != "" || color2 != "") {
+		// When colors are provided, use the pattern format
+		pattern := ""
+		
+		if color1 != "" {
+			// Validate color format
+			if !isValidHexColor(color1) {
+				return &mcp.CallToolResult{
+					Content: []mcp.Content{
+						mcp.TextContent{
+							Type: "text",
+							Text: "Error: 'color1' must be a valid 6-character hex color",
+						},
+					},
+					IsError: true,
+				}, nil
+			}
+			pattern = color1
+		}
+		
+		if color2 != "" {
+			// Validate color format
+			if !isValidHexColor(color2) {
+				return &mcp.CallToolResult{
+					Content: []mcp.Content{
+						mcp.TextContent{
+							Type: "text",
+							Text: "Error: 'color2' must be a valid 6-character hex color",
+						},
+					},
+					IsError: true,
+				}, nil
+			}
+			if pattern != "" {
+				// Create alternating pattern like ff0000|ffffff|ff0000|ffffff
+				pattern = fmt.Sprintf("%s|%s|%s|%s", color1, color2, color1, color2)
+			} else {
+				pattern = color2
+			}
+		}
+		
+		query = fmt.Sprintf("logo=%s", pattern)
+	} else {
+		// Simple on with default color
+		query = fmt.Sprintf("logo=%s", state)
+	}
+
 	// Execute the logo command
-	err := t.client.SetLogo(ctx, state)
+	_, err := t.client.SendRawQuery(ctx, query)
 	if err != nil {
 		// Publish the failed execution event
-		t.broadcaster.PublishRawExecuted(fmt.Sprintf("logo=%s", state), fmt.Sprintf("ERROR: %v", err))
+		t.broadcaster.PublishRawExecuted(query, fmt.Sprintf("ERROR: %v", err))
 		
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
 				mcp.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf("Failed to set logo state: %v", err),
+					Text: fmt.Sprintf("Failed to set logo: %v", err),
 				},
 			},
 			IsError: true,
@@ -109,13 +179,25 @@ func (t *SetLogoTool) Execute(ctx context.Context, arguments map[string]interfac
 	t.stateManager.UpdateLogo(state == "on")
 	
 	// Publish the successful execution event
-	t.broadcaster.PublishRawExecuted(fmt.Sprintf("logo=%s", state), "OK")
+	t.broadcaster.PublishRawExecuted(query, "OK")
+
+	// Build response message
+	message := fmt.Sprintf("Logo LED turned %s successfully", state)
+	if state == "on" && (color1 != "" || color2 != "") {
+		message += " with colors"
+		if color1 != "" {
+			message += fmt.Sprintf(" #%s", color1)
+		}
+		if color2 != "" {
+			message += fmt.Sprintf(" and #%s", color2)
+		}
+	}
 
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
 			mcp.TextContent{
 				Type: "text",
-				Text: fmt.Sprintf("Logo LED turned %s successfully", state),
+				Text: message,
 			},
 		},
 		IsError: false,

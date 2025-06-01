@@ -130,23 +130,31 @@ func (t *PlayEffectTool) Execute(ctx context.Context, arguments map[string]inter
 		}, nil
 	}
 
-	// Update state manager with the active effect
-	t.stateManager.SetActiveEffect(name)
+	// Push effect onto stack
+	effectContext := map[string]interface{}{
+		"duration":  duration,
+		"perpetual": effect.Perpetual,
+		"startTime": time.Now(),
+	}
+	t.stateManager.PushEffect(name, effect.Pattern, effectContext)
 
 	// Emit effect started event
 	t.broadcaster.Publish(events.Event{
 		Type: events.EventEffectStarted,
 		Data: map[string]interface{}{
-			"effect":   name,
-			"duration": duration,
-			"pattern":  effect.Pattern,
+			"effect":     name,
+			"duration":   duration,
+			"pattern":    effect.Pattern,
+			"stackDepth": t.stateManager.GetEffectStackDepth(),
 		},
 	})
 
 	// Build response message
 	message := fmt.Sprintf("✨ Effect '%s' started!\n\n", name)
 	message += fmt.Sprintf("• Description: %s\n", effect.Description)
-	if duration > 0 {
+	if effect.Perpetual {
+		message += "• Duration: Perpetual (runs until stopped)\n"
+	} else if duration > 0 {
 		message += fmt.Sprintf("• Duration: %d seconds\n", duration)
 		message += fmt.Sprintf("• Will stop at: %s\n", time.Now().Add(time.Duration(duration)*time.Second).Format("15:04:05"))
 	} else {
@@ -154,22 +162,37 @@ func (t *PlayEffectTool) Execute(ctx context.Context, arguments map[string]inter
 	}
 	message += fmt.Sprintf("\nPattern sent: %s", effect.Pattern)
 
-	// Start a goroutine to clear the effect after duration (if not infinite)
-	if duration > 0 {
+	// Start a goroutine to handle effect completion for timed effects
+	if duration > 0 && !effect.Perpetual {
 		go func() {
 			time.Sleep(time.Duration(duration) * time.Second)
 			
-			// Clear the UFO
-			t.client.SendRawQuery(context.Background(), "top_init=1&bottom_init=1")
+			// Pop the effect and get the previous one
+			previousEffect := t.stateManager.PopEffect()
 			
-			// Clear active effect in state
-			t.stateManager.SetActiveEffect("")
+			if previousEffect != nil {
+				// Resume the previous effect
+				t.client.SendRawQuery(context.Background(), previousEffect.Pattern)
+				
+				// Emit effect resumed event
+				t.broadcaster.Publish(events.Event{
+					Type: events.EventEffectResumed,
+					Data: map[string]interface{}{
+						"effect":     previousEffect.Name,
+						"stackDepth": t.stateManager.GetEffectStackDepth(),
+					},
+				})
+			} else {
+				// No previous effect, clear the UFO
+				t.client.SendRawQuery(context.Background(), "top_init=1&bottom_init=1")
+			}
 			
 			// Emit effect completed event
 			t.broadcaster.Publish(events.Event{
 				Type: events.EventEffectCompleted,
 				Data: map[string]interface{}{
-					"effect": name,
+					"effect":     name,
+					"stackDepth": t.stateManager.GetEffectStackDepth(),
 				},
 			})
 		}()

@@ -40,6 +40,16 @@ mkdir -p "$DATA_DIR"
 
 echo "✅ Data directory created at $DATA_DIR"
 
+# Copy default effects if they don't exist
+if [ ! -f "$DATA_DIR/effects.json" ]; then
+    if [ -f "./data/effects.json" ]; then
+        cp ./data/effects.json "$DATA_DIR/effects.json"
+        echo "✅ Default effects copied to $DATA_DIR/effects.json"
+    else
+        echo "⚠️  Default effects.json not found. It will be created on first run."
+    fi
+fi
+
 # Check if directory is in PATH
 if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
     echo "⚠️  $INSTALL_DIR is not in your PATH"

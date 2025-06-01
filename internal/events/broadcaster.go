@@ -18,11 +18,12 @@ const (
 	EventEffectStarted   = "effect_started"
 	EventEffectStopped   = "effect_stopped"
 	EventEffectCompleted = "effect_completed"
+	EventEffectResumed   = "effect_resumed"
 	EventDimChanged      = "dim_changed"
-	EventRingUpdate    = "ring_update"
-	EventButtonPress   = "button_press"
-	EventRawExecuted   = "raw_executed"
-	EventProgress      = "progress"
+	EventRingUpdate      = "ring_update"
+	EventButtonPress     = "button_press"
+	EventRawExecuted     = "raw_executed"
+	EventProgress        = "progress"
 )
 
 // Subscriber represents a client listening for events

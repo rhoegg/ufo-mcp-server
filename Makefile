@@ -7,6 +7,18 @@ BUILD_DIR=./build
 INSTALL_DIR=$(HOME)/.local/bin
 DATA_DIR=$(HOME)/.local/share/ufo-mcp
 
+# Version info
+VERSION := v0.4.1
+GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+SPEC_VERSION := 2025-03-26
+
+# Build flags
+LDFLAGS := -ldflags "-X github.com/starspace46/ufo-mcp-go/internal/version.Version=$(VERSION) \
+	-X github.com/starspace46/ufo-mcp-go/internal/version.GitCommit=$(GIT_COMMIT) \
+	-X github.com/starspace46/ufo-mcp-go/internal/version.BuildTime=$(BUILD_TIME) \
+	-X github.com/starspace46/ufo-mcp-go/internal/version.SpecVersion=$(SPEC_VERSION)"
+
 # Go variables
 GO_FILES=$(shell find . -name "*.go" -type f -not -path "./vendor/*")
 GO_MOD_FILES=go.mod go.sum
@@ -20,9 +32,9 @@ all: build
 build: $(BUILD_DIR)/$(BINARY_NAME)
 
 $(BUILD_DIR)/$(BINARY_NAME): $(GO_FILES) $(GO_MOD_FILES)
-	@echo "🔨 Building $(BINARY_NAME)..."
+	@echo "🔨 Building $(BINARY_NAME) $(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
-	go build -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@echo "✅ Built $(BUILD_DIR)/$(BINARY_NAME)"
 
 # Run tests
@@ -52,6 +64,10 @@ install: build
 	@mkdir -p $(DATA_DIR)
 	cp $(BUILD_DIR)/$(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
 	chmod +x $(INSTALL_DIR)/$(BINARY_NAME)
+	@if [ -f ./data/effects.json ] && [ ! -f $(DATA_DIR)/effects.json ]; then \
+		cp ./data/effects.json $(DATA_DIR)/effects.json; \
+		echo "✅ Default effects copied to $(DATA_DIR)/effects.json"; \
+	fi
 	@echo "✅ Installed to $(INSTALL_DIR)/$(BINARY_NAME)"
 	@echo "💡 Make sure $(INSTALL_DIR) is in your PATH"
 
@@ -104,19 +120,19 @@ change: clean test build
 
 # Release build (optimized)
 release:
-	@echo "🚀 Building release version..."
+	@echo "🚀 Building release version $(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PATH)
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-w -s" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PATH)
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-w -s" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-w -s" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PATH)
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -ldflags="-w -s" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PATH)
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -ldflags="-w -s" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PATH)
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -ldflags="-w -s" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -ldflags="-w -s" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PATH)
 	@echo "✅ Release builds complete in $(BUILD_DIR)/"
 
 # Docker build
 docker:
 	@echo "🐳 Building Docker image..."
-	docker build -t ufo-mcp-go .
-	@echo "✅ Docker image built: ufo-mcp-go"
+	docker build -t starspace46/mcp-server:$(VERSION) -t starspace46/mcp-server:latest .
+	@echo "✅ Docker image built: starspace46/mcp-server:$(VERSION)"
 
 # Show help
 help:

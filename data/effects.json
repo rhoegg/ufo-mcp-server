@@ -1,32 +1,58 @@
 [
   {
+    "name": "rainbow",
+    "description": "Slow moving rainbow",
+    "pattern": "top_init=1&bottom_init=1&top=0|2|ff0000&top=2|3|ff8000&top=5|2|ffff00&top=7|3|00ff00&top=10|2|0080ff&top=12|3|8000ff&bottom=0|3|8000ff&bottom=3|2|ff0080&bottom=5|3|ff0000&bottom=8|2|ff8000&bottom=10|3|ffff00&bottom=13|2|00ff00&top_whirl=300&bottom_whirl=280|ccw",
+    "duration": 0,
+    "perpetual": true
+  },
+  {
     "name": "policeLights",
-    "description": "Alternating red/blue flash",
-    "pattern": "top_init=1\u0026bottom_init=1\u0026top_bg=ff0000\u0026bottom_bg=0000ff\u0026top_whirl=500\u0026bottom_whirl=500",
-    "duration": 20
+    "description": "Realistic police light bar with rotating red/blue",
+    "pattern": "top_init=1&bottom_init=1&top=10|1|ffffff&top=0|1|0000ff&top=1|1|000080&top=2|1|000040&top=3|1|000020&top=4|1|000010&top=5|1|000008&top=6|1|000004&top_whirl=252&bottom=4|1|ffffff&bottom=15|1|ff0000&bottom=14|1|800000&bottom=13|1|400000&bottom=12|1|200000&bottom=11|1|100000&bottom=10|1|080000&bottom=9|1|040000&bottom_whirl=250|ccw",
+    "duration": 30,
+    "perpetual": false
   },
   {
     "name": "breathingGreen",
     "description": "Fade in/out green",
-    "pattern": "top_init=1\u0026bottom_init=1\u0026top=00ff00\u0026bottom=00ff00\u0026top_morph=fade\u0026bottom_morph=fade",
-    "duration": 15
+    "pattern": "top_init=1&bottom_init=1&top_bg=000000&bottom_bg=000000&top=0|15|00ff00&bottom=0|15|00ff00&top_morph=1500|3&bottom_morph=1500|3",
+    "duration": 0,
+    "perpetual": true
   },
   {
     "name": "pipelineDemo",
     "description": "Blog demo two-stage colours",
-    "pattern": "top_init=1\u0026bottom_init=1\u0026top=ffaa00\u0026bottom=00aaff",
-    "duration": 10
+    "pattern": "top_init=1&bottom_init=1&top=0|15|ffaa00&bottom=0|15|00aaff",
+    "duration": 10,
+    "perpetual": false
   },
   {
-    "name": "ipDisplay",
-    "description": "Spell IP address",
-    "pattern": "effect=ip",
-    "duration": 30
+    "name": "alertPulse",
+    "description": "Pulsing red alert",
+    "pattern": "top_init=1&bottom_init=1&top_bg=000000&bottom_bg=000000&top=0|15|ff0000&bottom=0|15|ff0000&top_morph=800|5&bottom_morph=800|5",
+    "duration": 20,
+    "perpetual": false
   },
   {
-    "name": "rainbow",
-    "description": "Slow moving rainbow",
-    "pattern": "effect=rainbow",
-    "duration": 15
+    "name": "oceanWave",
+    "description": "Calming ocean wave effect",
+    "pattern": "top_init=1&bottom_init=1&top_bg=001030&bottom_bg=001030&top=0|4|0080ff&top=5|3|00aaff&top=9|4|006699&top=13|2|00ccff&bottom=2|3|00aaff&bottom=6|4|0080ff&bottom=11|3|00ccff&bottom=14|1|ffffff&top_whirl=400&bottom_whirl=350|ccw&top_morph=2000|2&bottom_morph=2500|2",
+    "duration": 0,
+    "perpetual": true
+  },
+  {
+    "name": "fireGlow",
+    "description": "Flickering fire effect",
+    "pattern": "top_init=1&bottom_init=1&top_bg=330000&bottom_bg=330000&top=0|3|ff6600&top=4|2|ff9900&top=7|3|ffaa00&top=11|2|ff6600&top=14|1|ffff00&bottom=1|2|ff9900&bottom=4|3|ff6600&bottom=8|2|ffaa00&bottom=11|3|ff8800&bottom=14|1|ffffff&top_morph=300|8&bottom_morph=250|9",
+    "duration": 0,
+    "perpetual": true
+  },
+  {
+    "name": "midnightFade",
+    "description": "Slow rotating navy gradient fading to near-black",
+    "pattern": "top_init=1&bottom_init=1&top_bg=000000&bottom_bg=000000&top=0|5|000080&top=5|5|000040&top=10|5|000010&bottom=0|5|000080&bottom=5|5|000040&bottom=10|5|000010&top_morph=3000|1&bottom_morph=3000|1&top_whirl=500&bottom_whirl=480|ccw",
+    "duration": 0,
+    "perpetual": true
   }
 ]
