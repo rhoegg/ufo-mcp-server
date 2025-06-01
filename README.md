@@ -2,7 +2,7 @@
 
 A Model Context Protocol (MCP) server for controlling Dynatrace UFO lighting devices.
 
-**Version 0.4.1** - Implements MCP Specification 2025-03-26
+**Version 1.0.0** - Implements MCP Specification 2025-03-26
 
 ## Features
 
