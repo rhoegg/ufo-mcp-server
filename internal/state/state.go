@@ -14,6 +14,18 @@ type LedState struct {
 	LogoOn bool       `json:"logoOn"` // logo LED state
 	Effect string     `json:"effect"` // currently running effect name
 	Dim    int        `json:"dim"`    // brightness level 0-255
+	
+	// Animation state in milliseconds
+	TopWhirlMs    int        `json:"topWhirlMs,omitempty"`    // top ring rotation speed in ms
+	BottomWhirlMs int        `json:"bottomWhirlMs,omitempty"` // bottom ring rotation speed in ms
+	TopMorph      *MorphData `json:"topMorph,omitempty"`      // top ring morph settings
+	BottomMorph   *MorphData `json:"bottomMorph,omitempty"`   // bottom ring morph settings
+}
+
+// MorphData represents morph animation settings in milliseconds
+type MorphData struct {
+	BrightnessMs int `json:"brightnessMs"` // duration at full brightness
+	FadeMs       int `json:"fadeMs"`       // fade transition duration
 }
 
 // EffectStackItem represents an effect in the stack
@@ -324,4 +336,44 @@ func extractSegments(query, ring string) []string {
 func extractBackground(query, ring string) string {
 	// This is a placeholder - implement proper parsing based on UFO API format
 	return ""
+}
+
+// UpdateWhirl updates the whirl (rotation) speed for a ring
+func (m *Manager) UpdateWhirl(ring string, speedMs int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if ring == "top" {
+		m.state.TopWhirlMs = speedMs
+	} else if ring == "bottom" {
+		m.state.BottomWhirlMs = speedMs
+	}
+}
+
+// UpdateMorph updates the morph settings for a ring
+func (m *Manager) UpdateMorph(ring string, brightnessMs, fadeMs int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	morphData := &MorphData{
+		BrightnessMs: brightnessMs,
+		FadeMs:       fadeMs,
+	}
+
+	if ring == "top" {
+		m.state.TopMorph = morphData
+	} else if ring == "bottom" {
+		m.state.BottomMorph = morphData
+	}
+}
+
+// ClearAnimations clears all animation settings
+func (m *Manager) ClearAnimations() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.state.TopWhirlMs = 0
+	m.state.BottomWhirlMs = 0
+	m.state.TopMorph = nil
+	m.state.BottomMorph = nil
 }

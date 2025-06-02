@@ -42,7 +42,7 @@ func (t *AddEffectTool) Definition() mcp.Tool {
 				},
 				"duration": map[string]interface{}{
 					"type":        "number",
-					"description": "Duration in seconds (0-3600, 0 means infinite)",
+					"description": "Duration in milliseconds (0-3600000, 0 means infinite)",
 				},
 			},
 			Required: []string{"name", "description", "pattern"},
@@ -143,12 +143,12 @@ func (t *AddEffectTool) Execute(ctx context.Context, arguments map[string]interf
 	}
 
 	// Validate duration range
-	if duration < 0 || duration > 3600 {
+	if duration < 0 || duration > 3600000 {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
 				mcp.TextContent{
 					Type: "text",
-					Text: "Error: 'duration' must be between 0 and 3600 seconds",
+					Text: "Error: 'duration' must be between 0 and 3600000 milliseconds (1 hour)",
 				},
 			},
 			IsError: true,

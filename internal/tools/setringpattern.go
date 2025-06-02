@@ -74,7 +74,7 @@ func (t *SetRingPatternTool) Definition() mcp.Tool {
 					"default":     false,
 					"examples":    []bool{true, false},
 				},
-				"morphSpec": map[string]interface{}{
+				"morph": map[string]interface{}{
 					"type":        "string",
 					"description": "Fade effect specification in format 'STAY|SPEED' in milliseconds (optional)",
 					"pattern":     "^\\d+\\|\\d+$",
@@ -255,7 +255,7 @@ func (t *SetRingPatternTool) Execute(ctx context.Context, arguments map[string]i
 
 	// Extract optional morph spec
 	var morphSpec string
-	if morphArg, exists := arguments["morphSpec"]; exists {
+	if morphArg, exists := arguments["morph"]; exists {
 		if morphStr, ok := morphArg.(string); ok {
 			if !isValidMorphSpec(morphStr) {
 				return &mcp.CallToolResult{

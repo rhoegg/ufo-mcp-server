@@ -81,34 +81,56 @@ paths:
 
         - name: top_whirl
           in: query
-          description: Rotate lit LEDs on the top ring clockwise.
+          description: |
+            Rotate lit LEDs on the top ring.
+            
+            Format: `SPEED` or `SPEED|ccw`
+            - SPEED: Rotation period in milliseconds (0-510)
+            - Append `|ccw` for counter-clockwise rotation
+            
+            Example: `300` (clockwise) or `300|ccw` (counter-clockwise)
           schema:
-            type: integer
-            minimum: 0
-            maximum: 510
+            type: string
+            pattern: "^[0-9]{1,3}(\\|ccw)?$"
 
         - name: bottom_whirl
           in: query
-          description: Rotate lit LEDs on the bottom ring.
+          description: |
+            Rotate lit LEDs on the bottom ring.
+            
+            Format: `SPEED` or `SPEED|ccw`
+            - SPEED: Rotation period in milliseconds (0-510)
+            - Append `|ccw` for counter-clockwise rotation
           schema:
-            type: integer
-            minimum: 0
-            maximum: 510
+            type: string
+            pattern: "^[0-9]{1,3}(\\|ccw)?$"
 
         - name: top_morph
           in: query
           description: |
-            Fade LEDs on the top ring.
+            Creates a pulsing fade effect on the top ring between foreground and background colors.
 
-            Format: `STAY|SPEED` (in ms)
+            Format: `PERIOD|SPEED`
+            - PERIOD: Duration of full-brightness phase (in device ticks, not milliseconds)
+            - SPEED: Fade transition speed (1-10, where 10 is fastest)
+            
+            Note: Creates asymmetric pulse with longer "on" than "off" time.
+            Example: `100|10` (quick pulse) or `500|5` (slow pulse)
           schema:
             type: string
+            pattern: "^[0-9]+\\|[1-9]|10$"
 
         - name: bottom_morph
           in: query
-          description: Fade LEDs on the bottom ring.
+          description: |
+            Creates a pulsing fade effect on the bottom ring between foreground and background colors.
+
+            Format: `PERIOD|SPEED`
+            - PERIOD: Duration of full-brightness phase (in device ticks, not milliseconds)
+            - SPEED: Fade transition speed (1-10, where 10 is fastest)
           schema:
             type: string
+            pattern: "^[0-9]+\\|[1-9]|10$"
 
         - name: dim
           in: query

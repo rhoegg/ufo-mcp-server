@@ -44,7 +44,7 @@ func (t *PlayEffectTool) Definition() mcp.Tool {
 				},
 				"duration": map[string]interface{}{
 					"type":        "number",
-					"description": "Override duration in seconds (optional, uses effect's default if not specified)",
+					"description": "Override duration in milliseconds (optional, uses effect's default if not specified)",
 				},
 			},
 			Required: []string{"name"},
@@ -103,12 +103,12 @@ func (t *PlayEffectTool) Execute(ctx context.Context, arguments map[string]inter
 		}
 
 		// Validate duration
-		if duration < 0 || duration > 3600 {
+		if duration < 0 || duration > 3600000 {
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{
 					mcp.TextContent{
 						Type: "text",
-						Text: "Error: 'duration' must be between 0 and 3600 seconds",
+						Text: "Error: 'duration' must be between 0 and 3600000 milliseconds (1 hour)",
 					},
 				},
 				IsError: true,
@@ -155,8 +155,8 @@ func (t *PlayEffectTool) Execute(ctx context.Context, arguments map[string]inter
 	if effect.Perpetual {
 		message += "• Duration: Perpetual (runs until stopped)\n"
 	} else if duration > 0 {
-		message += fmt.Sprintf("• Duration: %d seconds\n", duration)
-		message += fmt.Sprintf("• Will stop at: %s\n", time.Now().Add(time.Duration(duration)*time.Second).Format("15:04:05"))
+		message += fmt.Sprintf("• Duration: %d ms (%.1f seconds)\n", duration, float64(duration)/1000)
+		message += fmt.Sprintf("• Will stop at: %s\n", time.Now().Add(time.Duration(duration)*time.Millisecond).Format("15:04:05"))
 	} else {
 		message += "• Duration: Infinite (use stopEffects to stop)\n"
 	}
@@ -165,7 +165,7 @@ func (t *PlayEffectTool) Execute(ctx context.Context, arguments map[string]inter
 	// Start a goroutine to handle effect completion for timed effects
 	if duration > 0 && !effect.Perpetual {
 		go func() {
-			time.Sleep(time.Duration(duration) * time.Second)
+			time.Sleep(time.Duration(duration) * time.Millisecond)
 			
 			// Pop the effect and get the previous one
 			previousEffect := t.stateManager.PopEffect()

@@ -13,7 +13,7 @@ type Effect struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Pattern     string `json:"pattern"`
-	Duration    int    `json:"duration"`
+	Duration    int    `json:"duration"` // Duration in milliseconds (was seconds in v1)
 	Perpetual   bool   `json:"perpetual"`
 }
 
@@ -59,6 +59,10 @@ func (s *Store) Load() error {
 
 	s.effects = make(map[string]*Effect)
 	for _, effect := range effects {
+		// Migration: if duration seems to be in seconds (< 1000), convert to milliseconds
+		if effect.Duration > 0 && effect.Duration < 1000 {
+			effect.Duration *= 1000
+		}
 		s.effects[effect.Name] = effect
 	}
 
@@ -129,7 +133,7 @@ func (s *Store) Add(effect *Effect) error {
 
 	// Set default duration if not specified
 	if effect.Duration <= 0 {
-		effect.Duration = 10
+		effect.Duration = 10000 // 10 seconds in milliseconds
 	}
 
 	s.effects[effect.Name] = effect
@@ -151,7 +155,7 @@ func (s *Store) Update(effect *Effect) error {
 
 	// Set default duration if not specified
 	if effect.Duration <= 0 {
-		effect.Duration = 10
+		effect.Duration = 10000 // 10 seconds in milliseconds
 	}
 
 	s.effects[effect.Name] = effect

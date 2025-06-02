@@ -63,9 +63,24 @@ func (t *ConfigureLightingTool) Definition() mcp.Tool {
 							"default":     false,
 						},
 						"morph": map[string]interface{}{
-							"type":        "string",
-							"description": "Morph/fade pattern 'STAY|SPEED' in ms",
-							"examples":    []string{"1000|500", "2000|1000"},
+							"type":        "object",
+							"description": "Morph/fade effect configuration",
+							"properties": map[string]interface{}{
+								"brightnessMs": map[string]interface{}{
+									"type":        "integer",
+									"description": "Duration at full brightness in milliseconds",
+									"minimum":     0,
+									"examples":    []interface{}{1000, 2000, 500},
+								},
+								"fadeMs": map[string]interface{}{
+									"type":        "integer",
+									"description": "Fade transition duration in milliseconds",
+									"minimum":     100,
+									"maximum":     10000,
+									"examples":    []interface{}{333, 1000, 2000},
+								},
+							},
+							"required": []string{"brightnessMs", "fadeMs"},
 						},
 					},
 				},
@@ -95,8 +110,22 @@ func (t *ConfigureLightingTool) Definition() mcp.Tool {
 							"default":     false,
 						},
 						"morph": map[string]interface{}{
-							"type":        "string",
-							"description": "Morph/fade pattern",
+							"type":        "object",
+							"description": "Morph/fade effect configuration",
+							"properties": map[string]interface{}{
+								"brightnessMs": map[string]interface{}{
+									"type":        "integer",
+									"description": "Duration at full brightness in milliseconds",
+									"minimum":     0,
+								},
+								"fadeMs": map[string]interface{}{
+									"type":        "integer",
+									"description": "Fade transition duration in milliseconds",
+									"minimum":     100,
+									"maximum":     10000,
+								},
+							},
+							"required": []string{"brightnessMs", "fadeMs"},
 						},
 					},
 				},
@@ -344,17 +373,59 @@ func (t *ConfigureLightingTool) buildRingQuery(ring string, config map[string]in
 		}
 	}
 
-	// Process morph
+	// Process morph - NEW IMPLEMENTATION
 	if morphVal, hasMorph := config["morph"]; hasMorph {
-		morph, ok := morphVal.(string)
+		morphConfig, ok := morphVal.(map[string]interface{})
 		if !ok {
-			return "", "", fmt.Errorf("morph must be a string")
+			return "", "", fmt.Errorf("morph must be an object with brightnessMs and fadeMs properties")
 		}
-		if !isValidMorphSpec(morph) {
-			return "", "", fmt.Errorf("invalid morph spec: %s", morph)
+
+		// Extract brightnessMs
+		var brightnessMs int
+		if bVal, ok := morphConfig["brightnessMs"]; ok {
+			switch v := bVal.(type) {
+			case float64:
+				brightnessMs = int(v)
+			case int:
+				brightnessMs = v
+			default:
+				return "", "", fmt.Errorf("brightnessMs must be a number")
+			}
+		} else {
+			return "", "", fmt.Errorf("morph requires brightnessMs property")
 		}
-		queryParts = append(queryParts, fmt.Sprintf("%s_morph=%s", ring, morph))
-		message = append(message, fmt.Sprintf("morphing %s", morph))
+
+		// Extract fadeMs
+		var fadeMs int
+		if fVal, ok := morphConfig["fadeMs"]; ok {
+			switch v := fVal.(type) {
+			case float64:
+				fadeMs = int(v)
+			case int:
+				fadeMs = v
+			default:
+				return "", "", fmt.Errorf("fadeMs must be a number")
+			}
+		} else {
+			return "", "", fmt.Errorf("morph requires fadeMs property")
+		}
+
+		// Validate ranges
+		if brightnessMs < 0 {
+			return "", "", fmt.Errorf("brightnessMs must be non-negative")
+		}
+		if fadeMs < 100 || fadeMs > 10000 {
+			return "", "", fmt.Errorf("fadeMs must be between 100 and 10000")
+		}
+
+		// Convert to device format
+		morphDevice := device.ConvertMorphToDevice(&device.MorphConfig{
+			BrightnessMs: brightnessMs,
+			FadeMs:       fadeMs,
+		})
+
+		queryParts = append(queryParts, fmt.Sprintf("%s_morph=%s", ring, morphDevice))
+		message = append(message, fmt.Sprintf("morphing %dms bright, %dms fade", brightnessMs, fadeMs))
 	}
 
 	return strings.Join(queryParts, "&"), strings.Join(message, ", "), nil

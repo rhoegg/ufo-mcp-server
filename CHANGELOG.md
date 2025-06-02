@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2025-06-02
+
+### Added
+- **Millisecond-based interface**: All time values use milliseconds for consistency
+  - `morph` parameter uses object format `{"brightnessMs": 1000, "fadeMs": 333}` for intuitive control
+  - Effect `duration` in milliseconds for precision
+  - `whirl` parameter in milliseconds
+- Enhanced shadow state to track animation parameters (whirl, morph)
+- Morph conversion utilities (`ConvertMorphToDevice`, `ConvertMorphFromDevice`)
+- Auto-migration for effects files from prototype versions
+- Comprehensive UFO API reference documentation
+- Frame-by-frame morph timing analysis
+
+### Changed
+- Improved morph documentation based on empirical testing
+- More intuitive morph control with explicit millisecond values
+
+### Technical Details
+- Conversion formulas: `ticks = ms / 6.67`, `speed = 3333 / fade_ms`
+- Based on 60fps frame analysis of actual UFO behavior
+- Fade transitions are symmetric at all speed settings (1-10)
+
 ## [0.4.1] - 2025-05-31
 
 ### Added

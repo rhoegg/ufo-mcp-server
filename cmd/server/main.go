@@ -26,7 +26,7 @@ import (
 
 const (
 	ServerName    = "dynatrace-ufo"
-	ServerVersion = "0.4.1"
+	ServerVersion = "1.0.0"
 )
 
 func main() {
