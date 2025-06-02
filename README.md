@@ -1,180 +1,200 @@
 # UFO MCP Server
 
-A Model Context Protocol (MCP) server for controlling Dynatrace UFO lighting devices.
+Control your Dynatrace UFO device through MCP-compatible clients like Claude Desktop.
 
-**Version 1.0.0** - Implements MCP Specification 2025-03-26
+**Version 1.0.0** - MCP Specification 2025-03-26
 
-## Features
+## 🚀 Quick Start
 
-- **Unified Control**: `configureLighting` tool controls entire UFO in one command
-- **Perpetual Effects**: Effects can run indefinitely until explicitly stopped
-- **Effect Management**: Store and manage custom lighting effects in JSON
-- **Shadow State**: Track current LED colors and brightness in memory
-- **Real-time Events**: Stream state changes and progress updates
-- **Resource Access**: Query UFO status and LED state
+### Prerequisites
+- A Dynatrace UFO device on your network
+- Find your UFO's IP address (check your router or use `ufo.local` if mDNS is available)
 
-## Installation
+## 📦 Installation
 
-### Build from Source
+### Option 1: Direct Download (Recommended)
 
 ```bash
-go build -o ufo-mcp ./cmd/server
+# macOS (Apple Silicon)
+curl -L https://github.com/starspace46/ufo/releases/download/v1.0.0/ufo-mcp-darwin-arm64 -o /usr/local/bin/ufo-mcp
+chmod +x /usr/local/bin/ufo-mcp
+
+# macOS (Intel)
+curl -L https://github.com/starspace46/ufo/releases/download/v1.0.0/ufo-mcp-darwin-amd64 -o /usr/local/bin/ufo-mcp
+chmod +x /usr/local/bin/ufo-mcp
+
+# Linux
+curl -L https://github.com/starspace46/ufo/releases/download/v1.0.0/ufo-mcp-linux-amd64 -o /usr/local/bin/ufo-mcp
+chmod +x /usr/local/bin/ufo-mcp
 ```
 
-### Configuration Options
+### Option 2: Docker
 
-- `--transport` or `-t`: Transport type (`stdio` or `http`, default: `stdio`)
-- `--port`: HTTP port when using http transport (default: `8080`)
-- `--ufo-ip`: UFO device IP address (default: `$UFO_IP` or `ufo`)
-- `--effects-file`: Path to effects JSON file (default: `/data/effects.json`)
+```bash
+docker pull starspace46/ufo-mcp:latest
 
-## Claude Desktop Configuration
+# Run with Docker
+docker run -d \
+  --name ufo-mcp \
+  -e UFO_IP=YOUR_UFO_IP_HERE \
+  -v ~/.ufo-effects:/data \
+  starspace46/ufo-mcp:latest
+```
 
-Add this configuration to your Claude Desktop `claude_desktop_config.json`:
+### Option 3: Build from Source
 
-### Option 1: Stdio Transport (Recommended)
+```bash
+git clone https://github.com/starspace46/ufo-mcp-server.git
+cd ufo-mcp-server
+go build -o ufo-mcp ./cmd/server
+sudo mv ufo-mcp /usr/local/bin/
+```
 
+## 🔧 Client Setup
+
+### Claude Desktop
+
+Add to your Claude Desktop configuration:
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+#### Direct Installation
 ```json
 {
   "mcpServers": {
     "ufo": {
-      "command": "/absolute/path/to/ufo-mcp",
+      "command": "/usr/local/bin/ufo-mcp",
       "args": [
         "--transport", "stdio",
-        "--ufo-ip", "192.168.1.100",
-        "--effects-file", "/absolute/path/to/effects.json"
-      ],
-      "env": {
-        "UFO_IP": "192.168.1.100"
-      }
-    }
-  }
-}
-```
-
-### Option 2: HTTP Transport (2025-03-26 Spec)
-
-Start the server in HTTP mode:
-```bash
-./ufo-mcp --transport http --port 8080 --ufo-ip 192.168.1.100
-```
-
-The server provides:
-- Single streamable HTTP endpoint at `POST /mcp`
-- Health check at `GET /healthz`
-- HTTP/2 support with streaming responses
-- Session management with 30-minute timeout
-- JSON-RPC batch request support
-
-Configure Claude Desktop or other MCP clients:
-```json
-{
-  "mcpServers": {
-    "ufo": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-http-proxy",
-        "http://localhost:8080/mcp"
+        "--ufo-ip", "YOUR_UFO_IP_HERE"
       ]
     }
   }
 }
 ```
 
-## Usage Examples
+#### Docker Installation
+```json
+{
+  "mcpServers": {
+    "ufo": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "-e", "UFO_IP=YOUR_UFO_IP_HERE",
+        "-v", "~/.ufo-effects:/data",
+        "starspace46/ufo-mcp:latest",
+        "--transport", "stdio"
+      ]
+    }
+  }
+}
+```
 
-Once configured, you can ask Claude to:
+### Cline (VS Code Extension)
 
-- `"Turn the UFO red"`
-- `"Show me the current UFO status"`  
-- `"Create a police lights effect"`
-- `"List all available lighting effects"`
-- `"Play the breathing green effect"` (runs perpetually)
-- `"Configure the UFO with rainbow top and blue bottom"`
+Add to VS Code settings.json:
 
-## Lighting Effects
+#### Direct Installation
+```json
+{
+  "mcp.servers": {
+    "ufo": {
+      "command": "/usr/local/bin/ufo-mcp",
+      "args": ["--transport", "stdio", "--ufo-ip", "YOUR_UFO_IP_HERE"]
+    }
+  }
+}
+```
 
-Effects are stored in `effects.json` and can be either:
-- **Perpetual**: Run indefinitely until another command (`duration: 0, perpetual: true`)
-- **Timed**: Run for a specific duration then stop (`duration: X, perpetual: false`)
+#### Docker Installation
+```json
+{
+  "mcp.servers": {
+    "ufo": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "-e", "UFO_IP=YOUR_UFO_IP_HERE",
+        "-v", "~/.ufo-effects:/data",
+        "starspace46/ufo-mcp:latest",
+        "--transport", "stdio"
+      ]
+    }
+  }
+}
+```
 
-### Default Effects:
-- `rainbow` - Perpetual rotating rainbow colors
-- `breathingGreen` - Perpetual pulsing green
-- `oceanWave` - Perpetual calming blue wave
-- `fireGlow` - Perpetual flickering fire
-- `policeLights` - 30-second police light bar
-- `alertPulse` - 20-second red alert
-- `pipelineDemo` - 10-second two-color demo
+### Other MCP Clients
 
-## Current Implementation Status
-
-✅ **Core Infrastructure**
-- MCP server framework
-- UFO device communication
-- Effect storage with persistence
-- Event broadcasting system
-
-✅ **Available Tools (7/8 exposed)**
-- `configureLighting` - Control entire UFO in one command (NEW)
-- `sendRawApi` - Execute raw UFO API commands (use dim=0-255 for brightness)
-- `setRingPattern` - Control ring lighting patterns
-- `setLogo` - Control Dynatrace logo LED  
-- `getLedState` - Get current LED shadow state
-- `listEffects` - Show all available effects
-- `playEffect` - Play a lighting effect by name
-
-🔲 **Remaining Tools (1/8)**
-- `stopEffects` - Cancel running effects
-
-💾 **Implemented but not exposed via MCP**
-- `setBrightness` - Adjust brightness (use dim parameter in patterns instead)
-- `addEffect` - Create new effects (available internally)
-- `updateEffect` - Modify existing effects (available internally)
-- `deleteEffect` - Remove effects (available internally)
-
-✅ **Resources (2/2)**
-- `ufo://status` - UFO device status
-- `ufo://ledstate` - Current LED shadow state
-
-🔲 **Streaming**
-- `stateEvents` - Real-time event stream (SSE)
-
-## Development
-
-### Running Tests
+For HTTP-based clients, start the server in HTTP mode:
 
 ```bash
-go test ./...
+# Direct
+ufo-mcp --transport http --port 8080 --ufo-ip YOUR_UFO_IP_HERE
+
+# Docker
+docker run -d \
+  --name ufo-mcp-http \
+  -p 8080:8080 \
+  -e UFO_IP=YOUR_UFO_IP_HERE \
+  -v ~/.ufo-effects:/data \
+  starspace46/ufo-mcp:latest \
+  --transport http
 ```
 
-### Testing with Mock UFO
+Then configure your client to connect to `http://localhost:8080/mcp`
 
-For development without a physical UFO device:
+## 💡 Usage Examples
 
-```bash
-# Start a mock UFO server
-python3 -m http.server 8081 &
+Once configured, ask Claude to:
 
-# Configure UFO_IP to point to mock
-export UFO_IP=localhost:8081
-./ufo-mcp --transport stdio
-```
+- **"Turn the UFO red"** - Sets all LEDs to red
+- **"Play the rainbow effect"** - Starts a colorful animation
+- **"Make the top ring blue and bottom ring green"** - Independent ring control
+- **"Set brightness to 50%"** - Adjust overall brightness
+- **"Add rotation to the top ring"** - Animate ring patterns
+- **"Show current UFO state"** - See what's currently displayed
 
-## Environment Variables
+## 🎨 Built-in Effects
 
-- `UFO_IP`: UFO device IP address or hostname
-- `LOG_LEVEL`: Logging level (default: `info`)
+The server includes pre-configured effects:
 
-## Architecture
+- **rainbow** - Rotating rainbow colors (perpetual)
+- **breathingGreen** - Calming green pulse (perpetual)
+- **policeLights** - Emergency light pattern (30 seconds)
+- **oceanWave** - Soothing blue waves (perpetual)
+- **fireGlow** - Flickering fire effect (perpetual)
+- **alertPulse** - Red alert flash (20 seconds)
 
-```
-cmd/server/          # Main server application
-internal/
-  device/            # UFO HTTP client
-  effects/           # Effect storage & CRUD  
-  events/            # Event broadcasting
-  tools/             # MCP tool implementations
-data/                # Effect storage
-```
+## 🛠️ Available Tools
+
+- `configureLighting` - One-command UFO configuration
+- `setRingPattern` - Advanced ring control
+- `playEffect` / `stopEffects` - Effect management
+- `getLedState` - Query current LED state
+- `listEffects` - Show available effects
+- Plus CRUD operations for custom effects
+
+## 📝 Configuration Options
+
+### Command Line Arguments
+- `--transport` or `-t`: Transport type (`stdio` or `http`, default: `stdio`)
+- `--port`: HTTP port when using http transport (default: `8080`)
+- `--ufo-ip`: UFO device IP address (overrides `UFO_IP` env var)
+- `--effects-file`: Path to effects JSON file (default: `/data/effects.json`)
+
+### Environment Variables
+- `UFO_IP`: UFO device IP address or hostname (e.g., `192.168.1.100` or `ufo.local`)
+
+## 🐛 Troubleshooting
+
+1. **Can't find UFO**: Check your UFO's IP address in your router's admin panel
+2. **Connection refused**: Ensure UFO is powered on and connected to your network
+3. **Effects not saving**: Check write permissions for the effects file location
+4. **Docker permission issues**: Ensure the effects directory is writable
+
+## 📄 License
+
+MIT License - See LICENSE file for details
