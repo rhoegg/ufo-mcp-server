@@ -92,7 +92,7 @@ func TestMCPCapabilities(t *testing.T) {
 					t.Fatalf("Failed to parse tools result: %v", err)
 				}
 
-				expectedTools := []string{"sendRawApi", "setBrightness", "setLogo", "setRingPattern"}
+				expectedTools := []string{"sendRawApi", "configureLighting", "playEffect", "stopEffect", "getLedState", "listEffects"}
 				foundTools := make(map[string]bool)
 				for _, tool := range toolsResult.Tools {
 					foundTools[tool.Name] = true

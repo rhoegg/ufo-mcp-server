@@ -238,7 +238,9 @@ func (m *Manager) BuildStateQuery() string {
 	
 	// Top ring animations
 	if m.state.TopWhirlMs > 0 {
-		parts = append(parts, fmt.Sprintf("top_whirl=%d", m.state.TopWhirlMs))
+		// Convert milliseconds to device value
+		whirlDevice := device.ConvertWhirlToDevice(m.state.TopWhirlMs)
+		parts = append(parts, fmt.Sprintf("top_whirl=%d", whirlDevice))
 	}
 	if m.state.TopMorph != nil {
 		morphSpec := device.ConvertMorphToDevice((*device.MorphConfig)(m.state.TopMorph))
@@ -254,7 +256,9 @@ func (m *Manager) BuildStateQuery() string {
 	
 	// Bottom ring animations
 	if m.state.BottomWhirlMs > 0 {
-		parts = append(parts, fmt.Sprintf("bottom_whirl=%d", m.state.BottomWhirlMs))
+		// Convert milliseconds to device value
+		whirlDevice := device.ConvertWhirlToDevice(m.state.BottomWhirlMs)
+		parts = append(parts, fmt.Sprintf("bottom_whirl=%d", whirlDevice))
 	}
 	if m.state.BottomMorph != nil {
 		morphSpec := device.ConvertMorphToDevice((*device.MorphConfig)(m.state.BottomMorph))

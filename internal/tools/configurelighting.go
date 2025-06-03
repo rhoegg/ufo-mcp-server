@@ -55,9 +55,10 @@ func (t *ConfigureLightingTool) Definition() mcp.Tool {
 						},
 						"whirl": map[string]interface{}{
 							"type":        "integer",
-							"description": "Rotation speed in milliseconds (0-510, 0=no rotation)",
+							"description": "Rotation period in milliseconds per revolution (0=no rotation, max 7650ms)",
 							"minimum":     0,
-							"maximum":     510,
+							"maximum":     7650,
+							"examples":    []interface{}{1000, 2000, 3000},
 						},
 						"counterClockwise": map[string]interface{}{
 							"type":        "boolean",
@@ -102,9 +103,9 @@ func (t *ConfigureLightingTool) Definition() mcp.Tool {
 						},
 						"whirl": map[string]interface{}{
 							"type":        "integer",
-							"description": "Rotation speed in milliseconds",
+							"description": "Rotation period in milliseconds per revolution",
 							"minimum":     0,
-							"maximum":     510,
+							"maximum":     7650,
 						},
 						"counterClockwise": map[string]interface{}{
 							"type":        "boolean",
@@ -400,26 +401,33 @@ func (t *ConfigureLightingTool) buildRingQuery(ring string, config map[string]in
 
 	// Process whirl
 	if whirlVal, hasWhirl := config["whirl"]; hasWhirl {
-		var whirl int
+		var whirlMs int
 		switch v := whirlVal.(type) {
 		case float64:
-			whirl = int(v)
+			whirlMs = int(v)
 		case int:
-			whirl = v
+			whirlMs = v
 		}
 		
-		if whirl < 0 || whirl > 510 {
-			return "", "", fmt.Errorf("whirl must be between 0 and 510")
+		// Validate rotation period in milliseconds
+		if whirlMs < 0 {
+			return "", "", fmt.Errorf("whirl must be non-negative")
+		}
+		// Maximum ~7.6 seconds for one rotation (510 device units)
+		if whirlMs > 7650 {
+			return "", "", fmt.Errorf("whirl must be <= 7650ms (7.65 seconds per rotation)")
 		}
 
-		if whirl > 0 {
-			whirlStr := fmt.Sprintf("%d", whirl)
+		if whirlMs > 0 {
+			// Convert milliseconds to device whirl value
+			whirlDevice := device.ConvertWhirlToDevice(whirlMs)
+			whirlStr := fmt.Sprintf("%d", whirlDevice)
 			ccw, _ := config["counterClockwise"].(bool)
 			if ccw {
 				whirlStr += "|ccw"
-				message = append(message, fmt.Sprintf("rotating CCW at %dms", whirl))
+				message = append(message, fmt.Sprintf("rotating CCW every %dms", whirlMs))
 			} else {
-				message = append(message, fmt.Sprintf("rotating CW at %dms", whirl))
+				message = append(message, fmt.Sprintf("rotating CW every %dms", whirlMs))
 			}
 			queryParts = append(queryParts, fmt.Sprintf("%s_whirl=%s", ring, whirlStr))
 		}
@@ -542,14 +550,15 @@ func (t *ConfigureLightingTool) buildLogoQuery(config map[string]interface{}) (s
 func (t *ConfigureLightingTool) updateRingState(ring string, config map[string]interface{}) {
 	// Update whirl state
 	if whirlVal, hasWhirl := config["whirl"]; hasWhirl {
-		whirl := 0
+		whirlMs := 0
 		switch v := whirlVal.(type) {
 		case float64:
-			whirl = int(v)
+			whirlMs = int(v)
 		case int:
-			whirl = v
+			whirlMs = v
 		}
-		t.stateManager.UpdateWhirl(ring, whirl)
+		// Store the millisecond value in state manager
+		t.stateManager.UpdateWhirl(ring, whirlMs)
 	}
 	
 	// Update segments state

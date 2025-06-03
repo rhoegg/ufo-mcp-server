@@ -168,3 +168,109 @@ func abs(x int) int {
 	}
 	return x
 }
+
+func TestConvertWhirlToDevice(t *testing.T) {
+	tests := []struct {
+		name       string
+		rotationMs int
+		want       int
+	}{
+		{
+			name:       "no rotation",
+			rotationMs: 0,
+			want:       0,
+		},
+		{
+			name:       "1 second rotation",
+			rotationMs: 1000,
+			want:       189, // 256 - (1000/15) = 256 - 66.67 ≈ 189
+		},
+		{
+			name:       "2 second rotation",
+			rotationMs: 2000,
+			want:       123, // 256 - (2000/15) = 256 - 133.33 ≈ 123
+		},
+		{
+			name:       "3 second rotation",
+			rotationMs: 3000,
+			want:       56, // 256 - (3000/15) = 256 - 200 = 56
+		},
+		{
+			name:       "500ms rotation (fast)",
+			rotationMs: 500,
+			want:       223, // 256 - (500/15) = 256 - 33.33 ≈ 223
+		},
+		{
+			name:       "minimum valid (very fast)",
+			rotationMs: 15, // One step per LED
+			want:       255, // 256 - 1 = 255
+		},
+		{
+			name:       "maximum valid (slow)",
+			rotationMs: 7650, // 510ms per step × 15 LEDs
+			want:       1, // Minimum speed
+		},
+		{
+			name:       "beyond maximum",
+			rotationMs: 10000,
+			want:       1, // Clamped to minimum
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ConvertWhirlToDevice(tt.rotationMs)
+			if got != tt.want {
+				t.Errorf("ConvertWhirlToDevice(%d) = %d, want %d", tt.rotationMs, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestConvertDeviceWhirlToMs(t *testing.T) {
+	tests := []struct {
+		name       string
+		whirlSpeed int
+		want       int
+	}{
+		{
+			name:       "no rotation",
+			whirlSpeed: 0,
+			want:       0,
+		},
+		{
+			name:       "speed 189 (≈1 second)",
+			whirlSpeed: 189,
+			want:       1005, // (256-189) × 15 = 67 × 15 = 1005
+		},
+		{
+			name:       "speed 123 (≈2 seconds)",
+			whirlSpeed: 123,
+			want:       1995, // (256-123) × 15 = 133 × 15 = 1995
+		},
+		{
+			name:       "speed 56 (3 seconds)",
+			whirlSpeed: 56,
+			want:       3000, // (256-56) × 15 = 200 × 15 = 3000
+		},
+		{
+			name:       "maximum speed 255",
+			whirlSpeed: 255,
+			want:       15, // (256-255) × 15 = 1 × 15 = 15
+		},
+		{
+			name:       "beyond normal range",
+			whirlSpeed: 300,
+			want:       15, // Negative delay clamped to 1ms × 15 = 15
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ConvertDeviceWhirlToMs(tt.whirlSpeed)
+			if got != tt.want {
+				t.Errorf("ConvertDeviceWhirlToMs(%d) = %d, want %d", tt.whirlSpeed, got, tt.want)
+			}
+		})
+	}
+}

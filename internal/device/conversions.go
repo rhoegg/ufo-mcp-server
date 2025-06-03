@@ -66,6 +66,58 @@ func ConvertMorphFromDevice(morphSpec string) *MorphConfig {
 	}
 }
 
+// ConvertWhirlToDevice converts rotation period in milliseconds to device whirl value
+// The whirl parameter controls rotation speed using a tick-based countdown mechanism:
+// - whirlTick starts at (0xFF - whirlSpeed) 
+// - Decrements each millisecond (Display() called with 1ms delay)
+// - When reaches 0, advances LED position and resets to (0xFF - whirlSpeed)
+// - Therefore: rotation_step_delay_ms = 256 - whirlSpeed
+// - And: full_rotation_ms = (256 - whirlSpeed) * 15 LEDs
+func ConvertWhirlToDevice(rotationMs int) int {
+	if rotationMs <= 0 {
+		return 0 // No rotation
+	}
+	
+	// Calculate step delay needed for desired rotation period
+	// rotationMs = stepDelayMs * 15 LEDs
+	stepDelayMs := float64(rotationMs) / 15.0
+	
+	// whirlSpeed = 256 - stepDelayMs
+	whirlSpeed := 256.0 - stepDelayMs
+	
+	// Clamp to valid range (1-255)
+	// Note: Documentation mentions max 510, but actual range depends on 
+	// whether the firmware extends beyond uint8. Testing shows values
+	// up to ~490 work, suggesting extended range.
+	if whirlSpeed < 1 {
+		whirlSpeed = 1
+	}
+	if whirlSpeed > 510 {
+		whirlSpeed = 510
+	}
+	
+	return int(math.Round(whirlSpeed))
+}
+
+// ConvertDeviceWhirlToMs converts device whirl value to rotation period in milliseconds
+func ConvertDeviceWhirlToMs(whirlSpeed int) int {
+	if whirlSpeed <= 0 {
+		return 0 // No rotation
+	}
+	
+	// Calculate step delay: stepDelayMs = 256 - whirlSpeed
+	// For values > 255, this gives negative delay (very fast rotation)
+	stepDelayMs := 256 - whirlSpeed
+	if stepDelayMs < 1 {
+		stepDelayMs = 1 // Minimum 1ms per step
+	}
+	
+	// Calculate full rotation time: rotationMs = stepDelayMs * 15 LEDs
+	rotationMs := stepDelayMs * 15
+	
+	return rotationMs
+}
+
 // ConvertDurationToMs converts seconds to milliseconds
 func ConvertDurationToMs(seconds int) int {
 	return seconds * 1000

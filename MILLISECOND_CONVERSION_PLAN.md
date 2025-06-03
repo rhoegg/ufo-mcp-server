@@ -97,8 +97,11 @@ type MorphState struct {
 ### Affected Parameters
 
 #### A. Whirl (Rotation)
-**Current**: Speed in ms (already milliseconds!)
-**No change needed**, but document clearly
+**Current**: Device units (0-510)
+**COMPLETED**: Now accepts rotation period in milliseconds
+- Whirl parameter now represents full rotation time in milliseconds
+- Conversion formula: `whirlDevice = 256 - (rotationMs / 15)`
+- Maximum rotation period: 7650ms (~7.65 seconds)
 
 #### B. Effect Duration
 **Current**: Seconds in tool interface
