@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2025-06-02
+
+### Fixed
+- **Whirl parameter conversion**: Fixed whirl parameter to correctly accept rotation period in milliseconds
+  - Analyzed ESP32 source code to understand exact implementation
+  - Whirl now represents full rotation time in milliseconds (was incorrectly documented)
+  - Maximum rotation period: 7650ms (~7.65 seconds)
+  - Conversion formula: `whirlDevice = 256 - (rotationMs / 15)`
+- Updated acceptance tests for removed tools (setBrightness, setLogo, setRingPattern)
+
+### Added
+- Comprehensive whirl conversion functions with proper millisecond handling
+- Tests for whirl conversion in both directions
+
+### Technical Details
+- ESP32 uses tick-based countdown: `whirlTick = 0xFF - whirlSpeed`
+- Display() called every 1ms, decrements counter until LED position advances
+- State manager now stores whirl in milliseconds and converts when building queries
+
 ## [1.0.0] - 2025-06-02
 
 ### Added

@@ -8,7 +8,7 @@ INSTALL_DIR=$(HOME)/.local/bin
 DATA_DIR=$(HOME)/.local/share/ufo-mcp
 
 # Version info
-VERSION := v0.4.1
+VERSION := v1.0.1
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 SPEC_VERSION := 2025-03-26

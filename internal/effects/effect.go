@@ -46,8 +46,11 @@ func (s *Store) Load() error {
 				s.effects = make(map[string]*Effect)
 				return s.saveUnsafe()
 			}
-			// Load the copied file
-			return s.Load()
+			// Load the copied file - need to unlock first to avoid deadlock
+			s.mu.Unlock()
+			err := s.Load()
+			s.mu.Lock()
+			return err
 		}
 		return fmt.Errorf("reading effects file: %w", err)
 	}

@@ -487,9 +487,10 @@ func TestBuildStateQuery(t *testing.T) {
 		
 		query := manager.BuildStateQuery()
 		
-		// Should have whirl
-		if !strings.Contains(query, "top_whirl=300") {
-			t.Errorf("Expected top_whirl=300, got query: %s", query)
+		// Should have whirl (300ms converts to device value 236)
+		// whirlDevice = 256 - (300/15) = 256 - 20 = 236
+		if !strings.Contains(query, "top_whirl=236") {
+			t.Errorf("Expected top_whirl=236 (300ms), got query: %s", query)
 		}
 		
 		// Should have morph (150|10 based on conversion)
@@ -517,11 +518,11 @@ func TestBuildStateQuery(t *testing.T) {
 			"dim=128",
 			"top_init=1",
 			"top=0|1|FF0000|1|1|00FF00|2|1|0000FF",
-			"top_whirl=200",
+			"top_whirl=243", // 200ms -> 256 - (200/15) = 256 - 13.33 ≈ 243
 			"top_morph=75|3",  // 500ms/6.67=75 ticks, 3333/1000=3.3≈3 speed
 			"bottom_init=1",
 			"bottom=0|1|FFFF00",
-			"bottom_whirl=250",
+			"bottom_whirl=239", // 250ms -> 256 - (250/15) = 256 - 16.67 ≈ 239
 			"logo=on",
 		}
 		
