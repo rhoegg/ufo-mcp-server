@@ -2,6 +2,7 @@ package state
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -298,4 +299,316 @@ func TestConcurrency(t *testing.T) {
 	}
 
 	// If we get here without deadlock or panic, concurrency is working
+}
+
+func TestEffectStack(t *testing.T) {
+	broadcaster := events.NewBroadcaster()
+	defer broadcaster.Close()
+
+	manager := NewManager(broadcaster)
+
+	// Test 1: Push and pop single effect
+	t.Run("SingleEffect", func(t *testing.T) {
+		manager.PushEffect("rainbow", "top=rainbow&bottom=rainbow", map[string]interface{}{
+			"perpetual": true,
+		})
+
+		// Check current effect
+		current := manager.GetCurrentEffect()
+		if current == nil || current.Name != "rainbow" {
+			t.Error("Expected rainbow effect to be current")
+		}
+		if manager.GetEffectStackDepth() != 1 {
+			t.Errorf("Expected stack depth 1, got %d", manager.GetEffectStackDepth())
+		}
+
+		// Pop effect
+		popped := manager.PopEffect()
+		if popped != nil {
+			t.Error("Expected nil when popping last effect")
+		}
+		if manager.GetEffectStackDepth() != 0 {
+			t.Errorf("Expected stack depth 0, got %d", manager.GetEffectStackDepth())
+		}
+	})
+
+	// Test 2: Multiple effects stack
+	t.Run("MultipleEffects", func(t *testing.T) {
+		// Clear stack first
+		for manager.GetEffectStackDepth() > 0 {
+			manager.PopEffect()
+		}
+
+		// Push multiple effects
+		manager.PushEffect("ocean", "pattern1", map[string]interface{}{"perpetual": true})
+		manager.PushEffect("alert", "pattern2", map[string]interface{}{"duration": 5000})
+		manager.PushEffect("fire", "pattern3", map[string]interface{}{"perpetual": true})
+
+		if manager.GetEffectStackDepth() != 3 {
+			t.Errorf("Expected stack depth 3, got %d", manager.GetEffectStackDepth())
+		}
+
+		// Current should be fire
+		current := manager.GetCurrentEffect()
+		if current == nil || current.Name != "fire" {
+			t.Error("Expected fire effect to be current")
+		}
+
+		// Pop fire, should return to alert
+		popped := manager.PopEffect()
+		if popped == nil || popped.Name != "alert" {
+			t.Error("Expected alert effect after popping fire")
+		}
+
+		// Pop alert, should return to ocean
+		popped = manager.PopEffect()
+		if popped == nil || popped.Name != "ocean" {
+			t.Error("Expected ocean effect after popping alert")
+		}
+
+		// Pop ocean, should return nil
+		popped = manager.PopEffect()
+		if popped != nil {
+			t.Error("Expected nil after popping last effect")
+		}
+	})
+
+	// Test 3: Base state restoration
+	t.Run("BaseStateRestoration", func(t *testing.T) {
+		// Clear stack
+		for manager.GetEffectStackDepth() > 0 {
+			manager.PopEffect()
+		}
+
+		// Set base state
+		manager.SetBaseState("top_init=1&bottom_init=1&top=0|15|00ff00")
+
+		// Push an effect
+		manager.PushEffect("temp", "pattern", map[string]interface{}{})
+
+		// Pop the effect - should return base state
+		popped := manager.PopEffect()
+		if popped == nil {
+			t.Error("Expected base state to be returned")
+		}
+		if popped.Name != "__base_state__" {
+			t.Errorf("Expected __base_state__, got %s", popped.Name)
+		}
+		if popped.Pattern != "top_init=1&bottom_init=1&top=0|15|00ff00" {
+			t.Errorf("Expected base state pattern, got %s", popped.Pattern)
+		}
+	})
+
+	// Test 4: Synthetic effects (configureLighting)
+	t.Run("SyntheticEffects", func(t *testing.T) {
+		// Clear stack and base state
+		for manager.GetEffectStackDepth() > 0 {
+			manager.PopEffect()
+		}
+		manager.SetBaseState("")
+
+		// Simulate sequence: playEffect X, configureLighting Y, configureLighting Z, playEffect A
+		manager.PushEffect("X", "patternX", map[string]interface{}{"perpetual": true})
+		manager.PushEffect("__config__", "patternY", map[string]interface{}{"synthetic": true})
+		manager.PushEffect("__config__", "patternZ", map[string]interface{}{"synthetic": true})
+		manager.PushEffect("A", "patternA", map[string]interface{}{"duration": 5000})
+
+		if manager.GetEffectStackDepth() != 4 {
+			t.Errorf("Expected stack depth 4, got %d", manager.GetEffectStackDepth())
+		}
+
+		// Pop A, should return to Z
+		popped := manager.PopEffect()
+		if popped == nil || popped.Pattern != "patternZ" {
+			t.Error("Expected to return to configureLighting Z")
+		}
+
+		// Pop Z, should return to Y
+		popped = manager.PopEffect()
+		if popped == nil || popped.Pattern != "patternY" {
+			t.Error("Expected to return to configureLighting Y")
+		}
+
+		// Pop Y, should return to X
+		popped = manager.PopEffect()
+		if popped == nil || popped.Name != "X" {
+			t.Error("Expected to return to effect X")
+		}
+	})
+}
+
+func TestBuildStateQuery(t *testing.T) {
+	broadcaster := events.NewBroadcaster()
+	defer broadcaster.Close()
+
+	t.Run("EmptyState", func(t *testing.T) {
+		manager := NewManager(broadcaster)
+		query := manager.BuildStateQuery()
+		
+		// Should have default values
+		if !strings.Contains(query, "dim=255") {
+			t.Error("Expected dim=255 in query")
+		}
+		if !strings.Contains(query, "top_init=1") {
+			t.Error("Expected top_init=1 in query")
+		}
+		if !strings.Contains(query, "bottom_init=1") {
+			t.Error("Expected bottom_init=1 in query")
+		}
+		if !strings.Contains(query, "logo=off") {
+			t.Error("Expected logo=off in query")
+		}
+	})
+
+	t.Run("WithSegments", func(t *testing.T) {
+		manager := NewManager(broadcaster)
+		
+		// Set some LEDs
+		colors := []string{"FF0000", "FF0000", "00FF00", "00FF00", "00FF00"}
+		manager.UpdateRingSegments("top", colors, "")
+		
+		query := manager.BuildStateQuery()
+		
+		// Should have segments
+		if !strings.Contains(query, "top=0|2|FF0000|2|3|00FF00") {
+			t.Errorf("Expected segment pattern, got query: %s", query)
+		}
+	})
+
+	t.Run("WithWhirlAndMorph", func(t *testing.T) {
+		manager := NewManager(broadcaster)
+		
+		// Set animations
+		manager.UpdateWhirl("top", 300)
+		manager.UpdateMorph("bottom", &MorphData{
+			BrightnessMs: 1000,
+			FadeMs:       333,
+		})
+		
+		query := manager.BuildStateQuery()
+		
+		// Should have whirl
+		if !strings.Contains(query, "top_whirl=300") {
+			t.Errorf("Expected top_whirl=300, got query: %s", query)
+		}
+		
+		// Should have morph (150|10 based on conversion)
+		if !strings.Contains(query, "bottom_morph=150|10") {
+			t.Errorf("Expected bottom_morph=150|10, got query: %s", query)
+		}
+	})
+
+	t.Run("CompleteState", func(t *testing.T) {
+		manager := NewManager(broadcaster)
+		
+		// Set a complete state
+		manager.UpdateBrightness(128)
+		manager.UpdateLogo(true)
+		manager.UpdateRingSegments("top", []string{"FF0000", "00FF00", "0000FF"}, "")
+		manager.UpdateRingSegments("bottom", []string{"FFFF00"}, "")
+		manager.UpdateWhirl("top", 200)
+		manager.UpdateWhirl("bottom", 250)
+		manager.UpdateMorph("top", &MorphData{BrightnessMs: 500, FadeMs: 1000})
+		
+		query := manager.BuildStateQuery()
+		
+		// Verify all components
+		expectedParts := []string{
+			"dim=128",
+			"top_init=1",
+			"top=0|1|FF0000|1|1|00FF00|2|1|0000FF",
+			"top_whirl=200",
+			"top_morph=75|3",  // 500ms/6.67=75 ticks, 3333/1000=3.3≈3 speed
+			"bottom_init=1",
+			"bottom=0|1|FFFF00",
+			"bottom_whirl=250",
+			"logo=on",
+		}
+		
+		for _, part := range expectedParts {
+			if !strings.Contains(query, part) {
+				t.Errorf("Expected '%s' in query: %s", part, query)
+			}
+		}
+	})
+
+	t.Run("ConsecutiveColors", func(t *testing.T) {
+		manager := NewManager(broadcaster)
+		
+		// Set consecutive same colors
+		colors := []string{"FF0000", "FF0000", "FF0000", "00FF00", "00FF00"}
+		manager.UpdateRingSegments("top", colors, "")
+		
+		query := manager.BuildStateQuery()
+		
+		// Should group consecutive colors
+		if !strings.Contains(query, "top=0|3|FF0000|3|2|00FF00") {
+			t.Errorf("Expected grouped segments, got query: %s", query)
+		}
+	})
+}
+
+func TestUpdateWhirl(t *testing.T) {
+	broadcaster := events.NewBroadcaster()
+	defer broadcaster.Close()
+	
+	manager := NewManager(broadcaster)
+	
+	// Test top ring whirl
+	manager.UpdateWhirl("top", 300)
+	state := manager.Snapshot()
+	if state.TopWhirlMs != 300 {
+		t.Errorf("Expected TopWhirlMs=300, got %d", state.TopWhirlMs)
+	}
+	
+	// Test bottom ring whirl
+	manager.UpdateWhirl("bottom", 450)
+	state = manager.Snapshot()
+	if state.BottomWhirlMs != 450 {
+		t.Errorf("Expected BottomWhirlMs=450, got %d", state.BottomWhirlMs)
+	}
+	
+	// Test invalid ring name (should be ignored)
+	manager.UpdateWhirl("invalid", 100)
+	// No error expected, just ignored
+}
+
+func TestUpdateMorph(t *testing.T) {
+	broadcaster := events.NewBroadcaster()
+	defer broadcaster.Close()
+	
+	manager := NewManager(broadcaster)
+	
+	// Test top ring morph
+	topMorph := &MorphData{
+		BrightnessMs: 1000,
+		FadeMs:       500,
+	}
+	manager.UpdateMorph("top", topMorph)
+	state := manager.Snapshot()
+	
+	if state.TopMorph == nil {
+		t.Fatal("Expected TopMorph to be set")
+	}
+	if state.TopMorph.BrightnessMs != 1000 {
+		t.Errorf("Expected TopMorph.BrightnessMs=1000, got %d", state.TopMorph.BrightnessMs)
+	}
+	if state.TopMorph.FadeMs != 500 {
+		t.Errorf("Expected TopMorph.FadeMs=500, got %d", state.TopMorph.FadeMs)
+	}
+	
+	// Test bottom ring morph
+	bottomMorph := &MorphData{
+		BrightnessMs: 2000,
+		FadeMs:       333,
+	}
+	manager.UpdateMorph("bottom", bottomMorph)
+	state = manager.Snapshot()
+	
+	if state.BottomMorph == nil {
+		t.Fatal("Expected BottomMorph to be set")
+	}
+	if state.BottomMorph.BrightnessMs != 2000 {
+		t.Errorf("Expected BottomMorph.BrightnessMs=2000, got %d", state.BottomMorph.BrightnessMs)
+	}
 }

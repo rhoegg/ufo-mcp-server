@@ -2,8 +2,11 @@ package state
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"sync"
 
+	"github.com/starspace46/ufo-mcp-go/internal/device"
 	"github.com/starspace46/ufo-mcp-go/internal/events"
 )
 
@@ -41,6 +44,7 @@ type Manager struct {
 	state       *LedState
 	effectStack []EffectStackItem
 	broadcaster *events.Broadcaster
+	baseState   string // Base state pattern to restore when stack is empty
 }
 
 // NewManager creates a new state manager
@@ -73,14 +77,30 @@ func (m *Manager) Snapshot() *LedState {
 
 	// Create a deep copy
 	stateCopy := &LedState{
-		LogoOn: m.state.LogoOn,
-		Effect: m.state.Effect,
-		Dim:    m.state.Dim,
+		LogoOn:        m.state.LogoOn,
+		Effect:        m.state.Effect,
+		Dim:           m.state.Dim,
+		TopWhirlMs:    m.state.TopWhirlMs,
+		BottomWhirlMs: m.state.BottomWhirlMs,
 	}
-
+	
 	// Copy arrays
 	copy(stateCopy.Top[:], m.state.Top[:])
 	copy(stateCopy.Bottom[:], m.state.Bottom[:])
+	
+	// Copy morph data if present
+	if m.state.TopMorph != nil {
+		stateCopy.TopMorph = &MorphData{
+			BrightnessMs: m.state.TopMorph.BrightnessMs,
+			FadeMs:       m.state.TopMorph.FadeMs,
+		}
+	}
+	if m.state.BottomMorph != nil {
+		stateCopy.BottomMorph = &MorphData{
+			BrightnessMs: m.state.BottomMorph.BrightnessMs,
+			FadeMs:       m.state.BottomMorph.FadeMs,
+		}
+	}
 
 	return stateCopy
 }
@@ -199,6 +219,84 @@ func (m *Manager) ToJSON() (string, error) {
 	return string(data), nil
 }
 
+// BuildStateQuery builds a complete UFO query string from current state
+func (m *Manager) BuildStateQuery() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var parts []string
+	
+	// Add brightness
+	parts = append(parts, fmt.Sprintf("dim=%d", m.state.Dim))
+	
+	// Build top ring
+	parts = append(parts, "top_init=1")
+	topSegments := m.buildRingSegments(m.state.Top)
+	if topSegments != "" {
+		parts = append(parts, fmt.Sprintf("top=%s", topSegments))
+	}
+	
+	// Top ring animations
+	if m.state.TopWhirlMs > 0 {
+		parts = append(parts, fmt.Sprintf("top_whirl=%d", m.state.TopWhirlMs))
+	}
+	if m.state.TopMorph != nil {
+		morphSpec := device.ConvertMorphToDevice((*device.MorphConfig)(m.state.TopMorph))
+		parts = append(parts, fmt.Sprintf("top_morph=%s", morphSpec))
+	}
+	
+	// Build bottom ring
+	parts = append(parts, "bottom_init=1")
+	bottomSegments := m.buildRingSegments(m.state.Bottom)
+	if bottomSegments != "" {
+		parts = append(parts, fmt.Sprintf("bottom=%s", bottomSegments))
+	}
+	
+	// Bottom ring animations
+	if m.state.BottomWhirlMs > 0 {
+		parts = append(parts, fmt.Sprintf("bottom_whirl=%d", m.state.BottomWhirlMs))
+	}
+	if m.state.BottomMorph != nil {
+		morphSpec := device.ConvertMorphToDevice((*device.MorphConfig)(m.state.BottomMorph))
+		parts = append(parts, fmt.Sprintf("bottom_morph=%s", morphSpec))
+	}
+	
+	// Logo
+	if m.state.LogoOn {
+		parts = append(parts, "logo=on")
+	} else {
+		parts = append(parts, "logo=off")
+	}
+	
+	return strings.Join(parts, "&")
+}
+
+// buildRingSegments builds segment string from LED array
+func (m *Manager) buildRingSegments(ring [15]string) string {
+	var segments []string
+	
+	// Group consecutive LEDs with same color
+	i := 0
+	for i < 15 {
+		color := ring[i]
+		if color == "" || color == "000000" {
+			i++
+			continue
+		}
+		
+		// Count consecutive LEDs with same color
+		count := 1
+		for j := i + 1; j < 15 && ring[j] == color; j++ {
+			count++
+		}
+		
+		segments = append(segments, fmt.Sprintf("%d|%d|%s", i, count, strings.ToUpper(color)))
+		i += count
+	}
+	
+	return strings.Join(segments, "|")
+}
+
 // PushEffect pushes a new effect onto the stack
 func (m *Manager) PushEffect(name, pattern string, context map[string]interface{}) {
 	m.mu.Lock()
@@ -213,6 +311,22 @@ func (m *Manager) PushEffect(name, pattern string, context map[string]interface{
 
 	// Update current effect
 	m.state.Effect = name
+}
+
+// SetBaseState updates the base state pattern
+func (m *Manager) SetBaseState(pattern string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	
+	m.baseState = pattern
+}
+
+// GetBaseState returns the current base state pattern
+func (m *Manager) GetBaseState() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	
+	return m.baseState
 }
 
 // PopEffect removes the current effect from the stack and returns the new current effect
@@ -235,7 +349,19 @@ func (m *Manager) PopEffect() *EffectStackItem {
 		return current
 	}
 
+	// Stack is empty, but we might have a base state to restore
 	m.state.Effect = ""
+	if m.baseState != "" {
+		// Return a synthetic effect that represents the base state
+		return &EffectStackItem{
+			Name:    "__base_state__",
+			Pattern: m.baseState,
+			Context: map[string]interface{}{
+				"synthetic": true,
+				"isBase":    true,
+			},
+		}
+	}
 	return nil
 }
 
@@ -339,41 +465,25 @@ func extractBackground(query, ring string) string {
 }
 
 // UpdateWhirl updates the whirl (rotation) speed for a ring
-func (m *Manager) UpdateWhirl(ring string, speedMs int) {
+func (m *Manager) UpdateWhirl(ring string, whirlMs int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
+	
 	if ring == "top" {
-		m.state.TopWhirlMs = speedMs
+		m.state.TopWhirlMs = whirlMs
 	} else if ring == "bottom" {
-		m.state.BottomWhirlMs = speedMs
+		m.state.BottomWhirlMs = whirlMs
 	}
 }
 
 // UpdateMorph updates the morph settings for a ring
-func (m *Manager) UpdateMorph(ring string, brightnessMs, fadeMs int) {
+func (m *Manager) UpdateMorph(ring string, morph *MorphData) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
-	morphData := &MorphData{
-		BrightnessMs: brightnessMs,
-		FadeMs:       fadeMs,
-	}
-
+	
 	if ring == "top" {
-		m.state.TopMorph = morphData
+		m.state.TopMorph = morph
 	} else if ring == "bottom" {
-		m.state.BottomMorph = morphData
+		m.state.BottomMorph = morph
 	}
-}
-
-// ClearAnimations clears all animation settings
-func (m *Manager) ClearAnimations() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.state.TopWhirlMs = 0
-	m.state.BottomWhirlMs = 0
-	m.state.TopMorph = nil
-	m.state.BottomMorph = nil
 }

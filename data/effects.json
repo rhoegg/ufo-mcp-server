@@ -30,8 +30,8 @@
   {
     "name": "alertPulse",
     "description": "Pulsing red alert",
-    "pattern": "top_init=1&bottom_init=1&top_bg=000000&bottom_bg=000000&top=0|15|ff0000&bottom=0|15|ff0000&top_morph=800|5&bottom_morph=800|5",
-    "duration": 20,
+    "pattern": "top_init=1&bottom_init=1&top=0|15|ff0000&bottom=0|15|ff0000&top_morph=30|10&bottom_morph=30|10",
+    "duration": 20000,
     "perpetual": false
   },
   {

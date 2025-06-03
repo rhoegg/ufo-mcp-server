@@ -129,20 +129,20 @@ func registerTools(mcpServer *server.MCPServer, deviceClient *device.Client, bro
 		return sendRawApiTool.Execute(ctx, request.GetArguments())
 	})
 
-	// setLogo tool
-	setLogoTool := tools.NewSetLogoTool(deviceClient, broadcaster, stateManager)
-	mcpServer.AddTool(setLogoTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return setLogoTool.Execute(ctx, request.GetArguments())
-	})
+	// setLogo tool - REMOVED: Use configureLighting instead for consistent stack behavior
+	// setLogoTool := tools.NewSetLogoTool(deviceClient, broadcaster, stateManager)
+	// mcpServer.AddTool(setLogoTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// 	return setLogoTool.Execute(ctx, request.GetArguments())
+	// })
 
 	// setBrightness tool - implemented but not exposed via MCP
 	// Brightness can be controlled via dim parameter in patterns
 
-	// setRingPattern tool
-	setRingPatternTool := tools.NewSetRingPatternTool(deviceClient, broadcaster, stateManager)
-	mcpServer.AddTool(setRingPatternTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return setRingPatternTool.Execute(ctx, request.GetArguments())
-	})
+	// setRingPattern tool - REMOVED: Use configureLighting instead for consistent stack behavior
+	// setRingPatternTool := tools.NewSetRingPatternTool(deviceClient, broadcaster, stateManager)
+	// mcpServer.AddTool(setRingPatternTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// 	return setRingPatternTool.Execute(ctx, request.GetArguments())
+	// })
 
 	// getLedState tool
 	getLedStateTool := tools.NewGetLedStateTool(stateManager)

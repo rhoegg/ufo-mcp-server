@@ -101,6 +101,12 @@ func (t *PlayEffectTool) Execute(ctx context.Context, arguments map[string]inter
 				IsError: true,
 			}, nil
 		}
+		
+		// Auto-convert seconds to milliseconds for small values
+		// Assume values < 50 that aren't 0 are in seconds
+		if duration > 0 && duration < 50 {
+			duration = duration * 1000
+		}
 
 		// Validate duration
 		if duration < 0 || duration > 3600000 {
@@ -152,10 +158,21 @@ func (t *PlayEffectTool) Execute(ctx context.Context, arguments map[string]inter
 	// Build response message
 	message := fmt.Sprintf("✨ Effect '%s' started!\n\n", name)
 	message += fmt.Sprintf("• Description: %s\n", effect.Description)
-	if effect.Perpetual {
+	
+	// Check if user explicitly provided a duration that overrides perpetual
+	userProvidedDuration := false
+	if _, hasDuration := arguments["duration"]; hasDuration && duration > 0 {
+		userProvidedDuration = true
+	}
+	
+	if effect.Perpetual && !userProvidedDuration {
 		message += "• Duration: Perpetual (runs until stopped)\n"
 	} else if duration > 0 {
-		message += fmt.Sprintf("• Duration: %d ms (%.1f seconds)\n", duration, float64(duration)/1000)
+		if duration >= 1000 {
+			message += fmt.Sprintf("• Duration: %.1f seconds\n", float64(duration)/1000)
+		} else {
+			message += fmt.Sprintf("• Duration: %d ms\n", duration)
+		}
 		message += fmt.Sprintf("• Will stop at: %s\n", time.Now().Add(time.Duration(duration)*time.Millisecond).Format("15:04:05"))
 	} else {
 		message += "• Duration: Infinite (use stopEffects to stop)\n"
@@ -163,7 +180,8 @@ func (t *PlayEffectTool) Execute(ctx context.Context, arguments map[string]inter
 	message += fmt.Sprintf("\nPattern sent: %s", effect.Pattern)
 
 	// Start a goroutine to handle effect completion for timed effects
-	if duration > 0 && !effect.Perpetual {
+	// User-provided duration overrides perpetual flag
+	if duration > 0 && (!effect.Perpetual || userProvidedDuration) {
 		go func() {
 			time.Sleep(time.Duration(duration) * time.Millisecond)
 			
@@ -172,7 +190,13 @@ func (t *PlayEffectTool) Execute(ctx context.Context, arguments map[string]inter
 			
 			if previousEffect != nil {
 				// Resume the previous effect
-				t.client.SendRawQuery(context.Background(), previousEffect.Pattern)
+				_, err := t.client.SendRawQuery(context.Background(), previousEffect.Pattern)
+				if err != nil {
+					// Log error but continue - we can't do much about it in a goroutine
+					t.broadcaster.PublishRawExecuted(previousEffect.Pattern, fmt.Sprintf("ERROR restoring effect: %v", err))
+				} else {
+					t.broadcaster.PublishRawExecuted(previousEffect.Pattern, "OK (restored)")
+				}
 				
 				// Emit effect resumed event
 				t.broadcaster.Publish(events.Event{
@@ -184,7 +208,13 @@ func (t *PlayEffectTool) Execute(ctx context.Context, arguments map[string]inter
 				})
 			} else {
 				// No previous effect, clear the UFO
-				t.client.SendRawQuery(context.Background(), "top_init=1&bottom_init=1")
+				clearQuery := "top_init=1&bottom_init=1&logo=off"
+				_, err := t.client.SendRawQuery(context.Background(), clearQuery)
+				if err != nil {
+					t.broadcaster.PublishRawExecuted(clearQuery, fmt.Sprintf("ERROR clearing UFO: %v", err))
+				} else {
+					t.broadcaster.PublishRawExecuted(clearQuery, "OK (cleared)")
+				}
 			}
 			
 			// Emit effect completed event

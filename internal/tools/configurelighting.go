@@ -3,7 +3,9 @@ package tools
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/starspace46/ufo-mcp-go/internal/device"
@@ -156,6 +158,12 @@ func (t *ConfigureLightingTool) Definition() mcp.Tool {
 					"minimum":     0,
 					"maximum":     255,
 				},
+				"duration": map[string]interface{}{
+					"type":        "integer",
+					"description": "Duration in milliseconds (optional, automatically restores previous state when expired)",
+					"minimum":     0,
+					"examples":    []interface{}{5000, 10000, 30000},
+				},
 			},
 		},
 	}
@@ -285,6 +293,50 @@ func (t *ConfigureLightingTool) Execute(ctx context.Context, arguments map[strin
 	}
 
 	t.broadcaster.PublishRawExecuted(combinedQuery, "OK")
+	
+	// Capture the complete state after update and push to stack
+	completeState := t.stateManager.BuildStateQuery()
+	t.stateManager.PushEffect("__config__", completeState, map[string]interface{}{
+		"synthetic": true,
+		"perpetual": true,
+	})
+	
+	// Check for duration parameter
+	if durationVal, hasDuration := arguments["duration"]; hasDuration {
+		duration := 0
+		switch v := durationVal.(type) {
+		case float64:
+			duration = int(v)
+		case int:
+			duration = v
+		}
+		
+		// Auto-convert seconds to milliseconds for small values
+		if duration > 0 && duration < 50 {
+			duration = duration * 1000
+		}
+		
+		// Start timer to restore previous state
+		if duration > 0 {
+			go func() {
+				time.Sleep(time.Duration(duration) * time.Millisecond)
+				
+				// Pop the configuration and restore previous
+				previousEffect := t.stateManager.PopEffect()
+				if previousEffect != nil {
+					t.client.SendRawQuery(context.Background(), previousEffect.Pattern)
+					t.broadcaster.PublishRawExecuted(previousEffect.Pattern, "OK (restored)")
+				} else {
+					// Clear if no previous state
+					t.client.SendRawQuery(context.Background(), "top_init=1&bottom_init=1&logo=off")
+					t.broadcaster.PublishRawExecuted("top_init=1&bottom_init=1&logo=off", "OK (cleared)")
+				}
+			}()
+			
+			// Add duration info to success message
+			messages = append(messages, fmt.Sprintf("Duration: %.1f seconds", float64(duration)/1000))
+		}
+	}
 
 	// Build success message
 	successMsg := "✨ UFO lighting configured successfully!\n\n" + strings.Join(messages, "\n")
@@ -426,7 +478,16 @@ func (t *ConfigureLightingTool) buildRingQuery(ring string, config map[string]in
 
 		queryParts = append(queryParts, fmt.Sprintf("%s_morph=%s", ring, morphDevice))
 		message = append(message, fmt.Sprintf("morphing %dms bright, %dms fade", brightnessMs, fadeMs))
+		
+		// Update state manager with morph data
+		t.stateManager.UpdateMorph(ring, &state.MorphData{
+			BrightnessMs: brightnessMs,
+			FadeMs: fadeMs,
+		})
 	}
+	
+	// Update state manager for segments and background
+	t.updateRingState(ring, config)
 
 	return strings.Join(queryParts, "&"), strings.Join(message, ", "), nil
 }
@@ -475,4 +536,69 @@ func (t *ConfigureLightingTool) buildLogoQuery(config map[string]interface{}) (s
 	}
 
 	return query, message, nil
+}
+
+// updateRingState updates the state manager with ring configuration
+func (t *ConfigureLightingTool) updateRingState(ring string, config map[string]interface{}) {
+	// Update whirl state
+	if whirlVal, hasWhirl := config["whirl"]; hasWhirl {
+		whirl := 0
+		switch v := whirlVal.(type) {
+		case float64:
+			whirl = int(v)
+		case int:
+			whirl = v
+		}
+		t.stateManager.UpdateWhirl(ring, whirl)
+	}
+	
+	// Update segments state
+	var ledColors []string
+	background := ""
+	
+	if bgVal, hasBg := config["background"]; hasBg {
+		background, _ = bgVal.(string)
+	}
+	
+	if segmentsVal, hasSegments := config["segments"]; hasSegments {
+		// Build LED color array from segments
+		colors := make([]string, 15)
+		// Initialize with background or black
+		for i := 0; i < 15; i++ {
+			if background != "" {
+				colors[i] = background
+			} else {
+				colors[i] = "000000"
+			}
+		}
+		
+		// Apply segments
+		if segments, ok := segmentsVal.([]interface{}); ok {
+			for _, seg := range segments {
+				if segStr, ok := seg.(string); ok {
+					parts := strings.Split(segStr, "|")
+					if len(parts) == 3 {
+						start, _ := strconv.Atoi(parts[0])
+						count, _ := strconv.Atoi(parts[1])
+						color := parts[2]
+						for i := 0; i < count && start+i < 15; i++ {
+							colors[start+i] = color
+						}
+					}
+				}
+			}
+		}
+		ledColors = colors
+	} else if background != "" {
+		// Just background, no segments
+		colors := make([]string, 15)
+		for i := 0; i < 15; i++ {
+			colors[i] = background
+		}
+		ledColors = colors
+	}
+	
+	if len(ledColors) > 0 {
+		t.stateManager.UpdateRingSegments(ring, ledColors, background)
+	}
 }
