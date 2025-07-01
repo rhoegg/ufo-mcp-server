@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/starspace46/ufo-mcp-go/internal/device"
 	"github.com/starspace46/ufo-mcp-go/internal/events"
 	"github.com/starspace46/ufo-mcp-go/internal/state"
+	"github.com/starspace46/ufo-mcp-go/internal/testutil"
 )
 
 func TestSetBrightnessTool_Definition(t *testing.T) {
@@ -64,8 +64,8 @@ func TestSetBrightnessTool_Execute(t *testing.T) {
 	}))
 	defer server.Close()
 
-	os.Setenv("UFO_IP", server.URL[7:])
-	defer os.Unsetenv("UFO_IP")
+	setIP, _ := testutil.SetupTestEnv(t)
+	setIP(server.URL[7:])
 
 	client := device.NewClient()
 	broadcaster := events.NewBroadcaster()
@@ -192,8 +192,8 @@ func TestSetBrightnessTool_EventPublishing(t *testing.T) {
 	}))
 	defer server.Close()
 
-	os.Setenv("UFO_IP", server.URL[7:])
-	defer os.Unsetenv("UFO_IP")
+	setIP, _ := testutil.SetupTestEnv(t)
+	setIP(server.URL[7:])
 
 	client := device.NewClient()
 	broadcaster := events.NewBroadcaster()

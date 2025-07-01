@@ -262,7 +262,7 @@ func (t *SetRingPatternTool) Execute(ctx context.Context, arguments map[string]i
 					Content: []mcp.Content{
 						mcp.TextContent{
 							Type: "text",
-							Text: "Error: 'morphSpec' must be in format 'STAY|SPEED' (e.g., '1000|500')",
+							Text: "Error: 'morph' must be in format 'STAY|SPEED' (e.g., '1000|500')",
 						},
 					},
 					IsError: true,
@@ -274,7 +274,7 @@ func (t *SetRingPatternTool) Execute(ctx context.Context, arguments map[string]i
 				Content: []mcp.Content{
 					mcp.TextContent{
 						Type: "text",
-						Text: "Error: 'morphSpec' parameter must be a string",
+						Text: "Error: 'morph' parameter must be a string",
 					},
 				},
 				IsError: true,

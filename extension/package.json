@@ -1,0 +1,30 @@
+{
+  "name": "ufo-mcp-extension",
+  "version": "1.0.1",
+  "description": "UFO MCP Desktop Extension - stdio bridge to HTTP MCP server for multi-agent coordination",
+  "main": "index.js",
+  "scripts": {
+    "build": "node build.js",
+    "test": "node index.js"
+  },
+  "keywords": [
+    "mcp",
+    "ufo",
+    "lighting",
+    "claude",
+    "desktop",
+    "extension"
+  ],
+  "author": "Starspace46",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "@anthropic-ai/dxt": "^0.1.0",
+    "adm-zip": "^0.5.10"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

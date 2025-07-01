@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -22,8 +23,16 @@ func NewClient() *Client {
 		ufoIP = "ufo" // default hostname
 	}
 
+	// Handle case where UFO_IP might already include protocol
+	var baseURL string
+	if strings.HasPrefix(ufoIP, "http://") || strings.HasPrefix(ufoIP, "https://") {
+		baseURL = ufoIP
+	} else {
+		baseURL = fmt.Sprintf("http://%s", ufoIP)
+	}
+
 	return &Client{
-		baseURL: fmt.Sprintf("http://%s", ufoIP),
+		baseURL: baseURL,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},

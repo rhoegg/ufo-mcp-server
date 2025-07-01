@@ -36,6 +36,7 @@ type EffectStackItem struct {
 	Name      string                 // Effect name
 	Pattern   string                 // Effect pattern
 	Context   map[string]interface{} // Additional context (duration, perpetual, etc)
+	Expired   bool                   // Whether this effect has expired (timed out)
 }
 
 // Manager manages the shadow LED state with thread-safe operations
@@ -346,6 +347,11 @@ func (m *Manager) PopEffect() *EffectStackItem {
 	// Remove the top effect
 	m.effectStack = m.effectStack[:len(m.effectStack)-1]
 
+	// Skip any expired effects until we find a non-expired one
+	for len(m.effectStack) > 0 && m.effectStack[len(m.effectStack)-1].Expired {
+		m.effectStack = m.effectStack[:len(m.effectStack)-1]
+	}
+
 	// Update current effect to the new top of stack
 	if len(m.effectStack) > 0 {
 		current := &m.effectStack[len(m.effectStack)-1]
@@ -388,6 +394,20 @@ func (m *Manager) GetEffectStackDepth() int {
 	defer m.mu.RUnlock()
 
 	return len(m.effectStack)
+}
+
+// MarkEffectExpired marks a specific effect in the stack as expired
+func (m *Manager) MarkEffectExpired(effectName string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Find and mark the effect as expired
+	for i := range m.effectStack {
+		if m.effectStack[i].Name == effectName {
+			m.effectStack[i].Expired = true
+			break
+		}
+	}
 }
 
 // UpdateTopRing updates all LEDs on the top ring

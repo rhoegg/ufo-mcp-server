@@ -91,8 +91,8 @@ func TestListEffectsTool_Execute(t *testing.T) {
 		t.Error("rainbow seed effect not found in output")
 	}
 	
-	// Check total count (5 seed effects + 2 test effects = 7)
-	if !strings.Contains(textContent.Text, "Total effects: 7") {
-		t.Error("Expected total of 7 effects")
+	// Check total count (8 seed effects + 2 test effects = 10)
+	if !strings.Contains(textContent.Text, "Total effects: 10") {
+		t.Error("Expected total of 10 effects")
 	}
 }

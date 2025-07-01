@@ -23,7 +23,7 @@ LDFLAGS := -ldflags "-X github.com/starspace46/ufo-mcp-go/internal/version.Versi
 GO_FILES=$(shell find . -name "*.go" -type f -not -path "./vendor/*")
 GO_MOD_FILES=go.mod go.sum
 
-.PHONY: all build test clean install uninstall run-stdio run-http deps check configure
+.PHONY: all build test clean install uninstall run-stdio run-http deps check configure dxt
 
 # Default target
 all: build
@@ -134,6 +134,29 @@ docker:
 	docker build -t starspace46/mcp-server:$(VERSION) -t starspace46/mcp-server:latest .
 	@echo "✅ Docker image built: starspace46/mcp-server:$(VERSION)"
 
+# Build Desktop Extension (DXT)
+dxt:
+	@echo "🛸 Building UFO MCP Desktop Extension..."
+	@if ! command -v node >/dev/null 2>&1; then \
+		echo "❌ Error: Node.js is required to build the extension"; \
+		echo "Please install Node.js from https://nodejs.org/"; \
+		exit 1; \
+	fi
+	@echo "📦 Installing extension dependencies..."
+	cd extension && npm install
+	@echo "🔨 Building extension package..."
+	cd extension && npm run build
+	@echo "✅ Desktop Extension built: build/ufo-mcp.dxt"
+	@echo ""
+	@echo "📱 To install in Claude Desktop:"
+	@echo "1. Open Claude Desktop"
+	@echo "2. Go to Settings > Extensions"
+	@echo "3. Drag build/ufo-mcp.dxt into the extensions area"
+	@echo ""
+	@echo "🚀 Before using the extension:"
+	@echo "Make sure the UFO MCP HTTP server is running:"
+	@echo "docker run -d --name ufo-mcp-shared -p 8080:8080 -v \"\$$(pwd)/data:/data\" ufo-mcp:local --transport http --port 8080"
+
 # Show help
 help:
 	@echo "UFO MCP Server - Available Make targets:"
@@ -151,6 +174,7 @@ help:
 	@echo "  install       Install to $(INSTALL_DIR)"
 	@echo "  uninstall     Remove from $(INSTALL_DIR)"
 	@echo "  configure     Install and configure Claude Desktop"
+	@echo "  dxt           Build Desktop Extension for Claude Desktop"
 	@echo ""
 	@echo "Running:"
 	@echo "  run-stdio     Run in stdio mode (set UFO_IP env var)"

@@ -4,13 +4,13 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/starspace46/ufo-mcp-go/internal/device"
 	"github.com/starspace46/ufo-mcp-go/internal/events"
 	"github.com/starspace46/ufo-mcp-go/internal/state"
+	"github.com/starspace46/ufo-mcp-go/internal/testutil"
 )
 
 func TestSetRingPatternTool_Definition(t *testing.T) {
@@ -46,8 +46,8 @@ func TestSetRingPatternTool_Execute_WithSegments(t *testing.T) {
 	}))
 	defer server.Close()
 
-	os.Setenv("UFO_IP", server.URL[7:])
-	defer os.Unsetenv("UFO_IP")
+	setIP, _ := testutil.SetupTestEnv(t)
+	setIP(server.URL[7:])
 
 	client := device.NewClient()
 	broadcaster := events.NewBroadcaster()
@@ -99,7 +99,7 @@ func TestSetRingPatternTool_Execute_WithSegments(t *testing.T) {
 			arguments: map[string]interface{}{
 				"ring": "top",
 				"segments": []interface{}{"0|5|FF0000"},
-				"morphSpec": "1000|500",
+				"morph": "1000|500",
 			},
 			expectError:   false,
 			expectText:    "Ring pattern applied to top ring successfully",
@@ -158,8 +158,8 @@ func TestSetRingPatternTool_Execute_NoSegments_ShouldFail(t *testing.T) {
 	}))
 	defer server.Close()
 
-	os.Setenv("UFO_IP", server.URL[7:])
-	defer os.Unsetenv("UFO_IP")
+	setIP, _ := testutil.SetupTestEnv(t)
+	setIP(server.URL[7:])
 
 	client := device.NewClient()
 	broadcaster := events.NewBroadcaster()
@@ -254,10 +254,10 @@ func TestSetRingPatternTool_Execute_ValidationErrors(t *testing.T) {
 			name: "invalid morph spec",
 			arguments: map[string]interface{}{
 				"ring": "top",
-				"morphSpec": "invalid",
+				"morph": "invalid",
 			},
 			expectError: true,
-			expectText:  "Error: 'morphSpec' must be in format 'STAY|SPEED'",
+			expectText:  "Error: 'morph' must be in format 'STAY|SPEED'",
 		},
 	}
 

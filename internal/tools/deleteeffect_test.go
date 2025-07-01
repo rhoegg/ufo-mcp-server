@@ -183,9 +183,9 @@ func TestDeleteEffectTool_Execute_Errors(t *testing.T) {
 			expectText:  "Cannot delete seed effect",
 		},
 		{
-			name:        "delete seed effect ipDisplay",
+			name:        "delete seed effect alertPulse",
 			arguments:   map[string]interface{}{
-				"name": "ipDisplay",
+				"name": "alertPulse",
 			},
 			expectError: true,
 			expectText:  "Cannot delete seed effect",

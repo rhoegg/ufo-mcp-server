@@ -257,10 +257,10 @@ func TestUpdateEffectTool_Execute_Errors(t *testing.T) {
 			name:        "duration out of range",
 			arguments:   map[string]interface{}{
 				"name":     "existingEffect",
-				"duration": 4000,
+				"duration": 3700000, // > 3600000 ms (1 hour)
 			},
 			expectError: true,
-			expectText:  "must be between 0 and 3600 seconds",
+			expectText:  "must be between 0 and 3600000 milliseconds",
 		},
 		{
 			name:        "no updates provided",

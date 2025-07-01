@@ -54,6 +54,9 @@ func (t *StopEffectTool) Execute(ctx context.Context, arguments map[string]inter
 		}, nil
 	}
 
+	// Store the name of the effect we're about to stop
+	stoppedEffectName := currentEffect.Name
+
 	// Pop the current effect and get the previous one
 	previousEffect := t.stateManager.PopEffect()
 	
@@ -87,7 +90,7 @@ func (t *StopEffectTool) Execute(ctx context.Context, arguments map[string]inter
 		})
 		
 		message = fmt.Sprintf("⏹️ Stopped '%s' and resumed '%s' (stack depth: %d)", 
-			currentEffect.Name, previousEffect.Name, t.stateManager.GetEffectStackDepth())
+			stoppedEffectName, previousEffect.Name, t.stateManager.GetEffectStackDepth())
 	} else {
 		// No previous effect, clear the UFO
 		query := "top_init=1&bottom_init=1&logo=off"
@@ -112,14 +115,14 @@ func (t *StopEffectTool) Execute(ctx context.Context, arguments map[string]inter
 		t.stateManager.UpdateBottomRing(make([]string, 15))
 		t.stateManager.UpdateLogo(false)
 		
-		message = fmt.Sprintf("⏹️ Stopped '%s' and cleared all LEDs (stack empty)", currentEffect.Name)
+		message = fmt.Sprintf("⏹️ Stopped '%s' and cleared all LEDs (stack empty)", stoppedEffectName)
 	}
 	
 	// Emit effect stopped event
 	t.broadcaster.Publish(events.Event{
 		Type: events.EventEffectStopped,
 		Data: map[string]interface{}{
-			"effect":     currentEffect.Name,
+			"effect":     stoppedEffectName,
 			"manual":     true,
 			"stackDepth": t.stateManager.GetEffectStackDepth(),
 		},

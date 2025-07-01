@@ -69,7 +69,7 @@ func (t *DeleteEffectTool) Execute(ctx context.Context, arguments map[string]int
 	}
 
 	// Check if it's a seed effect (seed effects have specific known names)
-	seedEffects := []string{"rainbow", "policeLights", "breathingGreen", "pipelineDemo", "ipDisplay"}
+	seedEffects := []string{"rainbow", "policeLights", "breathingGreen", "pipelineDemo", "alertPulse", "oceanWave", "fireGlow", "midnightFade"}
 	for _, seedName := range seedEffects {
 		if name == seedName {
 			return &mcp.CallToolResult{

@@ -19,6 +19,7 @@ import (
 	"github.com/starspace46/ufo-mcp-go/internal/events"
 	"github.com/starspace46/ufo-mcp-go/internal/state"
 	"github.com/starspace46/ufo-mcp-go/internal/tools"
+	"github.com/starspace46/ufo-mcp-go/internal/sse"
 	"github.com/starspace46/ufo-mcp-go/internal/version"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -34,12 +35,14 @@ func main() {
 	var port string
 	var ufoIP string
 	var effectsFile string
+	var logTools bool
 
 	flag.StringVar(&transport, "t", "stdio", "Transport type (stdio or http)")
 	flag.StringVar(&transport, "transport", "stdio", "Transport type (stdio or http)")
 	flag.StringVar(&port, "port", "8080", "HTTP port when using http transport")
 	flag.StringVar(&ufoIP, "ufo-ip", os.Getenv("UFO_IP"), "UFO device IP address")
 	flag.StringVar(&effectsFile, "effects-file", "/data/effects.json", "Path to effects JSON file")
+	flag.BoolVar(&logTools, "log-tools", false, "Enable logging of tool executions with session info")
 	flag.Parse()
 
 	// Default UFO IP if not set
@@ -65,7 +68,7 @@ func main() {
 	}
 
 	// Create MCP server
-	mcpServer := createMCPServer(deviceClient, broadcaster, effectsStore, stateManager)
+	mcpServer := createMCPServer(deviceClient, broadcaster, effectsStore, stateManager, logTools)
 
 	// Handle graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -88,7 +91,7 @@ func main() {
 	}
 }
 
-func createMCPServer(deviceClient *device.Client, broadcaster *events.Broadcaster, effectsStore *effects.Store, stateManager *state.Manager) *server.MCPServer {
+func createMCPServer(deviceClient *device.Client, broadcaster *events.Broadcaster, effectsStore *effects.Store, stateManager *state.Manager, logTools bool) *server.MCPServer {
 	// Create server with capabilities
 	mcpServer := server.NewMCPServer(
 		ServerName,
@@ -114,7 +117,7 @@ To check current LED colors, read the ufo://ledstate resource.`),
 	)
 
 	// Register tools
-	registerTools(mcpServer, deviceClient, broadcaster, effectsStore, stateManager)
+	registerTools(mcpServer, deviceClient, broadcaster, effectsStore, stateManager, logTools)
 
 	// Register resources
 	registerResources(mcpServer, deviceClient, stateManager)
@@ -122,12 +125,46 @@ To check current LED colors, read the ufo://ledstate resource.`),
 	return mcpServer
 }
 
-func registerTools(mcpServer *server.MCPServer, deviceClient *device.Client, broadcaster *events.Broadcaster, effectsStore *effects.Store, stateManager *state.Manager) {
+// wrapWithLogging wraps a tool handler with logging functionality
+func wrapWithLogging(toolName string, handler func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error), logTools bool) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if !logTools {
+		return handler
+	}
+	
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		// Extract session info
+		sessionID := "stdio"
+		if session := server.ClientSessionFromContext(ctx); session != nil {
+			sessionID = session.SessionID()
+		}
+		
+		// Log execution
+		args := request.GetArguments()
+		log.Printf("[SESSION: %s] Executing tool: %s with args: %v", sessionID, toolName, args)
+		
+		start := time.Now()
+		result, err := handler(ctx, request)
+		duration := time.Since(start)
+		
+		status := "success"
+		if err != nil {
+			status = fmt.Sprintf("error: %v", err)
+		}
+		
+		log.Printf("[SESSION: %s] Tool: %s completed in %dms - %s", 
+			sessionID, toolName, duration.Milliseconds(), status)
+		
+		return result, err
+	}
+}
+
+func registerTools(mcpServer *server.MCPServer, deviceClient *device.Client, broadcaster *events.Broadcaster, effectsStore *effects.Store, stateManager *state.Manager, logTools bool) {
 	// sendRawApi tool
 	sendRawApiTool := tools.NewSendRawApiTool(deviceClient, broadcaster)
-	mcpServer.AddTool(sendRawApiTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return sendRawApiTool.Execute(ctx, request.GetArguments())
-	})
+	mcpServer.AddTool(sendRawApiTool.Definition(), wrapWithLogging("sendRawApi", 
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return sendRawApiTool.Execute(ctx, request.GetArguments())
+		}, logTools))
 
 	// setLogo tool - REMOVED: Use configureLighting instead for consistent stack behavior
 	// setLogoTool := tools.NewSetLogoTool(deviceClient, broadcaster, stateManager)
@@ -146,15 +183,17 @@ func registerTools(mcpServer *server.MCPServer, deviceClient *device.Client, bro
 
 	// getLedState tool
 	getLedStateTool := tools.NewGetLedStateTool(stateManager)
-	mcpServer.AddTool(getLedStateTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return getLedStateTool.Execute(ctx, request.GetArguments())
-	})
+	mcpServer.AddTool(getLedStateTool.Definition(), wrapWithLogging("getLedState",
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return getLedStateTool.Execute(ctx, request.GetArguments())
+		}, logTools))
 
 	// listEffects tool
 	listEffectsTool := tools.NewListEffectsTool(effectsStore)
-	mcpServer.AddTool(listEffectsTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return listEffectsTool.Execute(ctx, request.GetArguments())
-	})
+	mcpServer.AddTool(listEffectsTool.Definition(), wrapWithLogging("listEffects",
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return listEffectsTool.Execute(ctx, request.GetArguments())
+		}, logTools))
 
 	// Effects CRUD tools are implemented but not exposed via MCP
 	// They remain available for internal use or future activation
@@ -164,21 +203,24 @@ func registerTools(mcpServer *server.MCPServer, deviceClient *device.Client, bro
 
 	// playEffect tool
 	playEffectTool := tools.NewPlayEffectTool(deviceClient, broadcaster, effectsStore, stateManager)
-	mcpServer.AddTool(playEffectTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return playEffectTool.Execute(ctx, request.GetArguments())
-	})
+	mcpServer.AddTool(playEffectTool.Definition(), wrapWithLogging("playEffect",
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return playEffectTool.Execute(ctx, request.GetArguments())
+		}, logTools))
 
 	// configureLighting tool - unified lighting control
 	configureLightingTool := tools.NewConfigureLightingTool(deviceClient, broadcaster, stateManager)
-	mcpServer.AddTool(configureLightingTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return configureLightingTool.Execute(ctx, request.GetArguments())
-	})
+	mcpServer.AddTool(configureLightingTool.Definition(), wrapWithLogging("configureLighting",
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return configureLightingTool.Execute(ctx, request.GetArguments())
+		}, logTools))
 
 	// stopEffect tool - pops the current effect from the stack and resumes the previous one
 	stopEffectTool := tools.NewStopEffectTool(deviceClient, broadcaster, stateManager)
-	mcpServer.AddTool(stopEffectTool.Definition(), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return stopEffectTool.Execute(ctx, request.GetArguments())
-	})
+	mcpServer.AddTool(stopEffectTool.Definition(), wrapWithLogging("stopEffect",
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return stopEffectTool.Execute(ctx, request.GetArguments())
+		}, logTools))
 }
 
 func registerResources(mcpServer *server.MCPServer, deviceClient *device.Client, stateManager *state.Manager) {
@@ -242,14 +284,20 @@ func registerResources(mcpServer *server.MCPServer, deviceClient *device.Client,
 var startTime = time.Now()
 
 func startHTTPServer(mcpServer *server.MCPServer, port string, ctx context.Context) {
-	// Create the MCP streamable HTTP server
-	mcpHandler := server.NewStreamableHTTPServer(mcpServer)
+	// Create the MCP streamable HTTP server with session tracking
+	mcpHandler := server.NewStreamableHTTPServer(mcpServer, 
+		server.WithStateLess(false)) // Enable session tracking for logging
 	
 	// Create a mux to handle both MCP and health check
 	mux := http.NewServeMux()
 	
 	// Mount MCP handler at /mcp
 	mux.Handle("/mcp", mcpHandler)
+	
+	// Add SSE support for MuleSoft compatibility
+	sseHandler := sse.NewHandler(mcpServer)
+	mux.Handle("/sse", sseHandler)
+	mux.HandleFunc("/sse/messages", sseHandler.HandleMessages)
 	
 	// Add health check endpoint
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -287,6 +335,7 @@ func startHTTPServer(mcpServer *server.MCPServer, port string, ctx context.Conte
 	go func() {
 		log.Printf("HTTP server listening on %s", httpServer.Addr)
 		log.Printf("  MCP endpoint: http://localhost%s/mcp", httpServer.Addr)
+		log.Printf("  SSE endpoint: http://localhost%s/sse (MuleSoft compatible)", httpServer.Addr)
 		log.Printf("  Health check: http://localhost%s/healthz", httpServer.Addr)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("HTTP server error: %v", err)

@@ -4,13 +4,13 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/starspace46/ufo-mcp-go/internal/device"
 	"github.com/starspace46/ufo-mcp-go/internal/events"
+	"github.com/starspace46/ufo-mcp-go/internal/testutil"
 )
 
 func TestSendRawApiTool_Definition(t *testing.T) {
@@ -51,8 +51,8 @@ func TestSendRawApiTool_Execute(t *testing.T) {
 	defer server.Close()
 
 	// Set UFO_IP to test server
-	os.Setenv("UFO_IP", server.URL[7:]) // Remove "http://" prefix
-	defer os.Unsetenv("UFO_IP")
+	setIP, _ := testutil.SetupTestEnv(t)
+	setIP(server.URL[7:]) // Remove "http://" prefix
 
 	client := device.NewClient()
 	broadcaster := events.NewBroadcaster()
@@ -136,8 +136,8 @@ func TestSendRawApiTool_EventPublishing(t *testing.T) {
 	}))
 	defer server.Close()
 
-	os.Setenv("UFO_IP", server.URL[7:])
-	defer os.Unsetenv("UFO_IP")
+	setIP, _ := testutil.SetupTestEnv(t)
+	setIP(server.URL[7:])
 
 	client := device.NewClient()
 	broadcaster := events.NewBroadcaster()

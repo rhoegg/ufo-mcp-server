@@ -125,7 +125,7 @@ func TestStore_SeedEffects(t *testing.T) {
 	}
 
 	// Check for specific seed effects
-	expectedEffects := []string{"rainbow", "policeLights", "breathingGreen", "pipelineDemo", "ipDisplay"}
+	expectedEffects := []string{"rainbow", "policeLights", "breathingGreen", "pipelineDemo", "alertPulse", "oceanWave", "fireGlow", "midnightFade"}
 	for _, name := range expectedEffects {
 		if _, exists := store.Get(name); !exists {
 			t.Errorf("seed effect '%s' not found", name)
@@ -158,7 +158,7 @@ func TestEffect_DefaultDuration(t *testing.T) {
 	}
 
 	retrieved, _ := store.Get("noDuration")
-	if retrieved.Duration != 10 {
-		t.Errorf("expected default duration 10, got %d", retrieved.Duration)
+	if retrieved.Duration != 10000 {
+		t.Errorf("expected default duration 10000 (10 seconds in ms), got %d", retrieved.Duration)
 	}
 }

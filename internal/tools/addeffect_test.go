@@ -231,10 +231,10 @@ func TestAddEffectTool_Execute_Errors(t *testing.T) {
 				"name":        "testEffect",
 				"description": "Test",
 				"pattern":     "test=1",
-				"duration":    4000, // > 3600
+				"duration":    3700000, // > 3600000 ms (1 hour)
 			},
 			expectError: true,
-			expectText:  "must be between 0 and 3600 seconds",
+			expectText:  "must be between 0 and 3600000 milliseconds",
 		},
 	}
 

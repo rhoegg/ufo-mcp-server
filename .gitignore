@@ -2,3 +2,4 @@
 build/
 test-*.sh
 ufo-esp32/
+extension/node_modules/

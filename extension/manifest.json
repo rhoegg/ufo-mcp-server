@@ -1,0 +1,73 @@
+{
+  "dxt_version": "0.1",
+  "name": "ufo-mcp-extension",
+  "version": "1.0.1",
+  "description": "Control Dynatrace UFO lighting devices with shared state across multiple Claude Desktop instances. Enables multi-agent coordination through a centralized HTTP MCP server.",
+  "display_name": "UFO MCP Extension",
+  "author": {
+    "name": "Starspace46",
+    "email": "info@starspace46.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/starspace46/ufo/tree/main/mcp-server"
+  },
+  "documentation": "https://github.com/starspace46/ufo/tree/main/mcp-server/extension/README.md",
+  "server": {
+    "type": "node",
+    "entry_point": "index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/index.js"],
+      "env": {
+        "UFO_MCP_SERVER": "${user_config.ufo_mcp_server}"
+      }
+    }
+  },
+  "user_config": {
+    "ufo_mcp_server": {
+      "title": "UFO MCP Server URL",
+      "description": "URL of the UFO MCP HTTP server",
+      "type": "string",
+      "default": "http://localhost:8080/mcp",
+      "required": false
+    }
+  },
+  "tools": [
+    {
+      "name": "configureLighting",
+      "description": "Configure UFO lighting patterns with rings, brightness, logo and effects"
+    },
+    {
+      "name": "playEffect", 
+      "description": "Play predefined lighting effects like rainbow, police lights, etc."
+    },
+    {
+      "name": "stopEffect",
+      "description": "Stop current effect and resume previous state from effect stack"
+    },
+    {
+      "name": "getLedState",
+      "description": "Get current LED state showing all colors, brightness and running effect"
+    },
+    {
+      "name": "listEffects",
+      "description": "List all available lighting effects"
+    },
+    {
+      "name": "sendRawApi",
+      "description": "Send raw API commands directly to UFO hardware"
+    }
+  ],
+  "keywords": [
+    "mcp",
+    "ufo",
+    "lighting",
+    "dynatrace",
+    "multi-agent",
+    "coordination",
+    "claude",
+    "desktop"
+  ]
+}

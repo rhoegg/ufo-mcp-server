@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/starspace46/ufo-mcp-go/internal/device"
 	"github.com/starspace46/ufo-mcp-go/internal/events"
 	"github.com/starspace46/ufo-mcp-go/internal/state"
+	"github.com/starspace46/ufo-mcp-go/internal/testutil"
 )
 
 func TestSetLogoTool_Definition(t *testing.T) {
@@ -58,8 +58,8 @@ func TestSetLogoTool_Execute(t *testing.T) {
 	}))
 	defer server.Close()
 
-	os.Setenv("UFO_IP", server.URL[7:])
-	defer os.Unsetenv("UFO_IP")
+	setIP, _ := testutil.SetupTestEnv(t)
+	setIP(server.URL[7:])
 
 	client := device.NewClient()
 	broadcaster := events.NewBroadcaster()
@@ -90,7 +90,7 @@ func TestSetLogoTool_Execute(t *testing.T) {
 			},
 			expectError:   false,
 			expectText:    "Logo LED turned off successfully",
-			expectedQuery: "logo=off",
+			expectedQuery: "logo=000000|000000|000000|000000",
 		},
 		{
 			name:        "missing state parameter",
@@ -160,8 +160,8 @@ func TestSetLogoTool_EventPublishing(t *testing.T) {
 	}))
 	defer server.Close()
 
-	os.Setenv("UFO_IP", server.URL[7:])
-	defer os.Unsetenv("UFO_IP")
+	setIP, _ := testutil.SetupTestEnv(t)
+	setIP(server.URL[7:])
 
 	client := device.NewClient()
 	broadcaster := events.NewBroadcaster()

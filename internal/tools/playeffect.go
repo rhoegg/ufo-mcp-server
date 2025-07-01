@@ -185,37 +185,45 @@ func (t *PlayEffectTool) Execute(ctx context.Context, arguments map[string]inter
 		go func() {
 			time.Sleep(time.Duration(duration) * time.Millisecond)
 			
-			// Pop the effect and get the previous one
-			previousEffect := t.stateManager.PopEffect()
+			// Mark the effect as expired
+			t.stateManager.MarkEffectExpired(name)
 			
-			if previousEffect != nil {
-				// Resume the previous effect
-				_, err := t.client.SendRawQuery(context.Background(), previousEffect.Pattern)
-				if err != nil {
-					// Log error but continue - we can't do much about it in a goroutine
-					t.broadcaster.PublishRawExecuted(previousEffect.Pattern, fmt.Sprintf("ERROR restoring effect: %v", err))
-				} else {
-					t.broadcaster.PublishRawExecuted(previousEffect.Pattern, "OK (restored)")
-				}
+			// Check if this effect is currently at the top of the stack
+			currentEffect := t.stateManager.GetCurrentEffect()
+			if currentEffect != nil && currentEffect.Name == name {
+				// This effect is at the top, so we need to pop and resume the next one
+				previousEffect := t.stateManager.PopEffect()
 				
-				// Emit effect resumed event
-				t.broadcaster.Publish(events.Event{
-					Type: events.EventEffectResumed,
-					Data: map[string]interface{}{
-						"effect":     previousEffect.Name,
-						"stackDepth": t.stateManager.GetEffectStackDepth(),
-					},
-				})
-			} else {
-				// No previous effect, clear the UFO
-				clearQuery := "top_init=1&bottom_init=1&logo=off"
-				_, err := t.client.SendRawQuery(context.Background(), clearQuery)
-				if err != nil {
-					t.broadcaster.PublishRawExecuted(clearQuery, fmt.Sprintf("ERROR clearing UFO: %v", err))
+				if previousEffect != nil {
+					// Resume the previous effect
+					_, err := t.client.SendRawQuery(context.Background(), previousEffect.Pattern)
+					if err != nil {
+						// Log error but continue - we can't do much about it in a goroutine
+						t.broadcaster.PublishRawExecuted(previousEffect.Pattern, fmt.Sprintf("ERROR restoring effect: %v", err))
+					} else {
+						t.broadcaster.PublishRawExecuted(previousEffect.Pattern, "OK (restored)")
+					}
+					
+					// Emit effect resumed event
+					t.broadcaster.Publish(events.Event{
+						Type: events.EventEffectResumed,
+						Data: map[string]interface{}{
+							"effect":     previousEffect.Name,
+							"stackDepth": t.stateManager.GetEffectStackDepth(),
+						},
+					})
 				} else {
-					t.broadcaster.PublishRawExecuted(clearQuery, "OK (cleared)")
+					// No previous effect, clear the UFO
+					clearQuery := "top_init=1&bottom_init=1&logo=off"
+					_, err := t.client.SendRawQuery(context.Background(), clearQuery)
+					if err != nil {
+						t.broadcaster.PublishRawExecuted(clearQuery, fmt.Sprintf("ERROR clearing UFO: %v", err))
+					} else {
+						t.broadcaster.PublishRawExecuted(clearQuery, "OK (cleared)")
+					}
 				}
 			}
+			// If the effect is not at the top, we just marked it as expired and it will be cleaned up later
 			
 			// Emit effect completed event
 			t.broadcaster.Publish(events.Event{

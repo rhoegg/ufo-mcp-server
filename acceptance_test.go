@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/starspace46/ufo-mcp-go/internal/testutil"
 )
 
 // MCPRequest represents a JSON-RPC request
@@ -31,8 +33,8 @@ type MCPResponse struct {
 // TestMCPCapabilities runs acceptance tests for all MCP capabilities
 func TestMCPCapabilities(t *testing.T) {
 	// Set UFO_IP for testing
-	os.Setenv("UFO_IP", "192.168.1.72")
-	defer os.Unsetenv("UFO_IP")
+	setIP, _ := testutil.SetupTestEnv(t)
+	setIP("192.168.1.72")
 
 	// Build the server
 	cmd := exec.Command("go", "build", "-o", "./build/ufo-mcp-test", "./cmd/server")

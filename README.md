@@ -2,7 +2,7 @@
 
 Control your Dynatrace UFO device through MCP-compatible clients like Claude Desktop.
 
-**Version 1.0.0** - MCP Specification 2025-03-26
+**Version 1.0.1** - MCP Specification 2024-11-05
 
 ## 🚀 Quick Start
 
@@ -16,15 +16,15 @@ Control your Dynatrace UFO device through MCP-compatible clients like Claude Des
 
 ```bash
 # macOS (Apple Silicon)
-curl -L https://github.com/starspace46/ufo/releases/download/v1.0.0/ufo-mcp-darwin-arm64 -o /usr/local/bin/ufo-mcp
+curl -L https://github.com/starspace46/ufo/releases/download/v1.0.1/ufo-mcp-darwin-arm64 -o /usr/local/bin/ufo-mcp
 chmod +x /usr/local/bin/ufo-mcp
 
 # macOS (Intel)
-curl -L https://github.com/starspace46/ufo/releases/download/v1.0.0/ufo-mcp-darwin-amd64 -o /usr/local/bin/ufo-mcp
+curl -L https://github.com/starspace46/ufo/releases/download/v1.0.1/ufo-mcp-darwin-amd64 -o /usr/local/bin/ufo-mcp
 chmod +x /usr/local/bin/ufo-mcp
 
 # Linux
-curl -L https://github.com/starspace46/ufo/releases/download/v1.0.0/ufo-mcp-linux-amd64 -o /usr/local/bin/ufo-mcp
+curl -L https://github.com/starspace46/ufo/releases/download/v1.0.1/ufo-mcp-linux-amd64 -o /usr/local/bin/ufo-mcp
 chmod +x /usr/local/bin/ufo-mcp
 ```
 
@@ -52,7 +52,38 @@ sudo mv ufo-mcp /usr/local/bin/
 
 ## 🔧 Client Setup
 
-### Claude Desktop
+### Option A: Desktop Extension (Recommended for Multi-Agent)
+
+For **multi-agent coordination** where multiple Claude Desktop instances share the same UFO state, use the Desktop Extension:
+
+#### 1. Build the Extension
+```bash
+make dxt
+```
+
+#### 2. Start HTTP Server
+```bash
+docker run -d --name ufo-mcp-shared -p 8080:8080 -v "$(pwd)/data:/data" ufo-mcp:local --transport http --port 8080
+```
+
+#### 3. Install Extension
+1. Open Claude Desktop
+2. Go to **Settings > Extensions**
+3. Drag `build/ufo-mcp.dxt` into the extensions area
+
+**Benefits:**
+- ✅ Multiple Claude Desktop instances share UFO state
+- ✅ Real-time coordination between agents
+- ✅ Centralized effect stack management
+- ✅ No configuration file editing required
+
+See [extension/README.md](extension/README.md) for detailed documentation.
+
+### Option B: Direct MCP Configuration
+
+For **single-agent** use or when you prefer traditional MCP server configuration:
+
+#### Claude Desktop
 
 Add to your Claude Desktop configuration:
 
@@ -126,13 +157,15 @@ Add to VS Code settings.json:
 }
 ```
 
-### Other MCP Clients
+### MuleSoft Anypoint Code Builder
 
-For HTTP-based clients, start the server in HTTP mode:
+The UFO MCP server includes legacy SSE support for MuleSoft's MCP Connector (0.1.0-BETA).
+
+1. Start the server in HTTP mode:
 
 ```bash
 # Direct
-ufo-mcp --transport http --port 8080 --ufo-ip YOUR_UFO_IP_HERE
+ufo-mcp --transport http --port 8080 --ufo-ip YOUR_UFO_IP_HERE --effects-file ./data/effects.json
 
 # Docker
 docker run -d \
@@ -144,7 +177,19 @@ docker run -d \
   --transport http
 ```
 
-Then configure your client to connect to `http://localhost:8080/mcp`
+2. In Anypoint Code Builder, configure your MCP connection:
+   - Server URL: `http://localhost:8080`
+   - SSE Endpoint Path: `/sse`
+   - The server will automatically handle session persistence across reconnections
+
+### Other MCP Clients
+
+For standard HTTP/2 MCP clients, connect to `http://localhost:8080/mcp`
+
+The server supports multiple transport modes simultaneously:
+- **stdio**: Standard I/O for desktop clients (Claude, Cline)
+- **http**: HTTP/2 + SSE for web-based clients
+- **Legacy SSE**: Bidirectional SSE for MuleSoft compatibility
 
 ## 💡 Usage Examples
 
