@@ -99,21 +99,26 @@ func createMCPServer(deviceClient *device.Client, broadcaster *events.Broadcaste
 		server.WithToolCapabilities(true), // Tools can change
 		server.WithResourceCapabilities(true, false), // Resources, no subscription yet
 		server.WithLogging(),
-		server.WithInstructions(`This MCP server provides control over a Dynatrace UFO lighting device. 
+		server.WithInstructions(`This MCP server provides control over a Dynatrace UFO lighting device.
 
-Available capabilities:
-- Send raw API commands to the UFO
-- Control lighting effects and patterns  
-- Manage brightness and logo
-- Store and manage custom lighting effects
-- Real-time event streaming for state changes
+Available tools:
+- configureLighting - Set entire UFO lighting (top ring, bottom ring, logo) in one command with effects stack support
+- sendRawApi - Send raw API commands directly to the UFO device
+- playEffect - Play a named lighting effect from the effects library
+- stopEffect - Stop the current effect and resume the previous one from the stack
+- listEffects - List all available lighting effects (built-in and custom)
+- getLedState - Get current LED colors, brightness, logo state, and running effect
 
 Resources:
-- ufo://status - Get UFO device status
-- ufo://ledstate - Get current LED colors, brightness, logo state, and running effect (shadow state)
+- ufo://status - Get UFO device status and configuration
+- ufo://ledstate - Get current LED state (same as getLedState tool)
 
-Use sendRawApi for direct UFO control or the high-level tools for common operations.
-To check current LED colors, read the ufo://ledstate resource.`),
+The server maintains an effects stack - when you play an effect or configure lighting, it's pushed onto the stack. 
+Use stopEffect to pop the current effect and resume the previous one. Effects can have optional durations that 
+automatically restore the previous state when expired.
+
+For direct control, use sendRawApi with UFO API query strings (e.g., 'top_init=1&top=ff0000').
+For high-level control, use configureLighting to set patterns with rotation, morphing, and more.`),
 	)
 
 	// Register tools

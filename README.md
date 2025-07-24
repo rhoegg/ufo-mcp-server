@@ -215,12 +215,12 @@ The server includes pre-configured effects:
 
 ## 🛠️ Available Tools
 
-- `configureLighting` - One-command UFO configuration
-- `setRingPattern` - Advanced ring control
-- `playEffect` / `stopEffects` - Effect management
+- `configureLighting` - Set entire UFO lighting (top ring, bottom ring, logo) in one command
+- `sendRawApi` - Send raw API commands directly to the UFO
+- `playEffect` - Play a named lighting effect from the library
+- `stopEffect` - Stop current effect and resume previous one from the stack
 - `getLedState` - Query current LED state
-- `listEffects` - Show available effects
-- Plus CRUD operations for custom effects
+- `listEffects` - Show all available effects (built-in and custom)
 
 ## 📝 Configuration Options
 
